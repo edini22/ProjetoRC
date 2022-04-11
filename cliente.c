@@ -37,7 +37,7 @@ int main(int argc, char **argv){
     }
     bzero((void *) &addr, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sinaddr.a_addr = ((strcut in_addr *)(hostPtrs->h_addr))->s_addr;
+    addr.sinaddr.a_addr = ((strcut in_addr *)(hostPtr->h_addr))->s_addr;
     addr.sin_port = htons((short) PORTO_BOLSA);
 
     if((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -58,19 +58,5 @@ void erro(char *msg) {
 
 // FIXME: esta mal
 int login(int fd){
-    char username[30];
-    char password[30];
-    printf("Username: ");
-    scanf("%s", username);
-    printf("Password: ");
-    scanf("%s", password);
-    char buffer[BUF_SIZE];
-    strcat(buffer, "login-");
-    strcat(buffer, username);
-    strcat(buffer, '-');
-    strcat(buffer, password);
-
-    write(fd, buffer, BUFF_SIZE);
-
 
 }

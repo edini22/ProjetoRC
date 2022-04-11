@@ -50,9 +50,6 @@ typedef struct {
     // sem_t *mutex_user2;
     // sem_t *mutex_login;
 
-    char mensagem_user2[BUF_SIZE];
-    char mensagem_user1[BUF_SIZE];
-
     pid_t childs_pid[2];
 
 } SM;
@@ -101,17 +98,17 @@ void config(char *path) {
 
     // guardar os mercados
     while (fscanf(fich, "%[^\n] ", line) != EOF) {
-        printf("%s\n", line);
         char *token = strtok(line, ";");
         i = 0;
-        char mercado[50];
         while (token != NULL) {
             int merc = 0;
             if (shared_memory->num_mercados != 0) {
                 char mercado[50];
                 strcpy(mercado, shared_memory->mercados[0].nome);
-                if (strcmp(mercado, line) ) {
+                if (strcmp(mercado, line)) {
                     merc = 1;
+                    if (shared_memory->mercados[merc].num_acoes == 0)
+                        shared_memory->mercados[merc].num_acoes++;
                 }
             }
             if (shared_memory->num_mercados == 0)
@@ -120,20 +117,15 @@ void config(char *path) {
             if (i == 0) {
                 strcpy(shared_memory->mercados[merc].nome, token);
                 i++;
-                printf("%s\n", token);
             } else if (i == 1) {
                 strcpy(shared_memory->mercados[merc].acoes[a].nome, token);
                 i++;
             } else if (i == 2) {
-                printf("xd %s\n", line);
-                shared_memory->mercados[merc].acoes[a].preco_inicial = atof(token);
-                shared_memory->mercados[merc].num_acoes++;
-                printf("xd2 %s\n", line);
+                shared_memory->mercados[merc].acoes[a].preco_inicial = (float)atof(token);
             }
             token = strtok(NULL, ";");
         }
     }
-    printf("%s\n", shared_memory->mercados[1].nome);
     fclose(fich);
 }
 
@@ -142,12 +134,12 @@ void erro(char *msg) {
     exit(1);
 }
 
+int login(int fd);
+
 int main(int argc, char **argv) {
     int fd, client;
     struct sockaddr_in addr, client_addr;
     int client_addr_size;
-    int jogador = 0;
-    int status;
 
     if (argc != 4) {
         erro("stock_server {PORTO_BOLSA} {PORTO_CONFIG} {ficheiro configuração}");
@@ -180,9 +172,6 @@ int main(int argc, char **argv) {
     shared_memory = shmat(shm_id, NULL, 0);
 
     config(path);
-    printf("chegou ate antes do login\n");
-
-    login(fd);
 
     // sem_unlink("MUTEX_USER1");
     // sem_unlink("MUTEX_USER2");
@@ -191,6 +180,15 @@ int main(int argc, char **argv) {
     // shared_memory->mutex_user2 = sem_open("MUTEX_USER2", O_CREAT | O_EXCL, 0700, 0);
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // shared_memory->mensagem_invalida = 0;
+    printf("%s",shared_memory->users[0].nome);
+
+    while (waitpid(-1, NULL, WNOHANG) > 0)
+        ;
+    //     // wait for new connection
+    client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
+    printf("Client connected...\n");
+
+    login(client);
 
     // while (jogador < 11) {
     //     // clean finished child processes, avoiding zombies
@@ -227,7 +225,7 @@ int main(int argc, char **argv) {
     // terminar();
 
     // close socket
-    // close(fd);
+    close(fd);
 
     return 0;
 }
@@ -238,37 +236,42 @@ int login(int fd) {
 
     // Read username
     write(fd, "Login:\n Username: ", 50);
+    fflush(stdout);
     read(fd, username, 30);
     // Verify user
     int i;
     int existe = 0;
     for (i = 0; i < shared_memory->num_utilizadores; i++) {
-        if (!strcmp(username, shared_memory->users[i].nome)) {
+        char aux[50];
+        strcpy(aux,shared_memory->users[i].nome);
+        if (!strcmp(username, aux)) {
             existe = 1;
             break;
         }
     }
 
     // Read password
-    write(fd, "Password: ", 50);
+    write(fd, "\nPassword: ", 50);
     read(fd, password, BUF_SIZE);
     // Verify password
     int password_correta = 0;
     if (existe) {
-        if (!strcmp(password, shared_memory->users[i].password)) {
+        char aux[50];
+        strcpy(aux,shared_memory->users[i].password);
+        if (!strcmp(password, aux)) {
             password_correta = 1;
         }
     }
 
     // Return success or unsuccess
     if (!existe) {
-        write(fd, "O Username nao existe", 50);
+        write(fd, "\nO Username nao existe", 50);
         return 0;
     } else if (existe && !password_correta) {
-        write(fd, "Password incorreta", 50);
+        write(fd, "\nPassword incorreta", 50);
         return 0;
     } else {
-        write(fd, "Login efetuado com sucesso!", 50);
+        write(fd, "\nLogin efetuado com sucesso!", 50);
         return 1;
     }
 }
