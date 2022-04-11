@@ -26,6 +26,7 @@ int main(int argc, char **argv){
     }
 
     // leitura dos parametros
+    
     char *ponteiro;
     char endereco[50];
     strcpy(endereco, argv[1]);
