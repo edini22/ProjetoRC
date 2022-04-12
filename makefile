@@ -1,21 +1,32 @@
-FLAGS = -Wall -g -pthread
+FLAGS	= -Wall -g -pthread
+CC	    = gcc
 
-all: operations_terminal stock_server clean
+PROG1   = stock_server
+OBJS1   = stock_server.o func.o
 
-##############################################
+PROG2	= operations_terminal
+OBJS2	= cliente.o
 
-operations_terminal: cliente.o
-	gcc ${FLAGS} cliente.c -o $@
+# $@ nome do target
+# $< primeiro pre requesito (?)
 
-cliente.o: cliente.c
+all:	${PROG1} ${PROG2} clean
 
-##############################################
+${PROG1}:	${OBJS1}
+	${CC} ${FLAGS} ${OBJS1} -o $@ 
 
-stock_server: stock_server.o
-	gcc ${FLAGS} stock_server.c -o $@
+${PROG2}:	${OBJS2}
+	${CC} ${FLAGS} ${OBJS2} -o $@ 
 
-stock_server.o: stock_server.c
-
-##############################################
+.PHONY : clean
 clean:
-	rm -f stock_cliente.o stock_server.o
+	rm -f ${OBJS1} ${OBJS2}
+
+# Server
+
+func.o: func.h func.c
+
+# Cliente
+
+cliente.o: cliente.c 
+
