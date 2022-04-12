@@ -38,7 +38,7 @@ int main(int argc, char **argv){
     }
     bzero((void *) &addr, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sinaddr.a_addr = ((strcut in_addr *)(hostPtr->h_addr))->s_addr;
+    addr.sin_addr.s_addr = ((struct in_addr *)(hostPtr->h_addr))->s_addr;
     addr.sin_port = htons((short) PORTO_BOLSA);
 
     if((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -57,7 +57,7 @@ void erro(char *msg) {
     exit(1);
 }
 
-// FIXME: esta mal
+// TODO:
 int login(int fd){
-
+    return 0;
 }
