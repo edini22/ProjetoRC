@@ -5,14 +5,14 @@ all: operations_terminal stock_server clean
 ##############################################
 
 operations_terminal: cliente.o
-	gcc ${FLAGS} cliente.o -o $@
+	gcc ${FLAGS} cliente.c -o $@
 
 cliente.o: cliente.c
 
 ##############################################
 
 stock_server: stock_server.o
-	gcc ${FLAGS} stock_server.o -o $@
+	gcc ${FLAGS} stock_server.c -o $@
 
 stock_server.o: stock_server.c
 
