@@ -231,47 +231,57 @@ int main(int argc, char **argv) {
 }
 
 int login(int fd) {
-    char username[30];
-    char password[30];
-
+    char buffer[BUF_SIZE];
+    memset(buffer,0,BUF_SIZE);
     // Read username
-    write(fd, "Login:\n Username: ", 50);
+    snprintf(buffer, BUF_SIZE, "Login:\n Username: ");
+    write(fd, buffer, BUF_SIZE);
     fflush(stdout);
-    read(fd, username, 30);
+    memset(buffer,0,BUF_SIZE);
+    read(fd, buffer,BUF_SIZE);
+    printf("\nusername: %s", buffer);
     // Verify user
     int i;
     int existe = 0;
     for (i = 0; i < shared_memory->num_utilizadores; i++) {
-        char aux[50];
-        strcpy(aux,shared_memory->users[i].nome);
-        if (!strcmp(username, aux)) {
+        char aux[BUF_SIZE];
+        strcpy(aux, shared_memory->users[i].nome);
+        if (!strcmp(buffer, aux)) {
+            printf("\tTOP de mais!!\n");
             existe = 1;
             break;
         }
     }
 
     // Read password
-    write(fd, "\nPassword: ", 50);
-    read(fd, password, BUF_SIZE);
+    memset(buffer,0,BUF_SIZE);
+    snprintf(buffer, BUF_SIZE, "\nPassword: ");
+    write(fd, buffer, BUF_SIZE);
+    memset(buffer,0,BUF_SIZE);
+    read(fd, buffer, BUF_SIZE);
     // Verify password
     int password_correta = 0;
     if (existe) {
         char aux[50];
-        strcpy(aux,shared_memory->users[i].password);
-        if (!strcmp(password, aux)) {
+        strcpy(aux, shared_memory->users[i].password);
+        if (!strcmp(buffer, aux)) {
             password_correta = 1;
         }
     }
 
     // Return success or unsuccess
+    memset(buffer,0,BUF_SIZE);
     if (!existe) {
-        write(fd, "\nO Username nao existe", 50);
+        snprintf(buffer, BUF_SIZE, "\nO Username nao existe");
+        write(fd, buffer, BUF_SIZE);
         return 0;
     } else if (existe && !password_correta) {
-        write(fd, "\nPassword incorreta", 50);
+        snprintf(buffer, BUF_SIZE, "\nPassword incorreta");
+        write(fd, buffer, BUF_SIZE);
         return 0;
     } else {
-        write(fd, "\nLogin efetuado com sucesso!", 50);
+        snprintf(buffer, BUF_SIZE, "\nLogin efetuado com sucesso!");
+        write(fd, buffer, BUF_SIZE);
         return 1;
     }
 }
