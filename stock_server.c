@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
     // shared_memory->mutex_user2 = sem_open("MUTEX_USER2", O_CREAT | O_EXCL, 0700, 0);
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // shared_memory->mensagem_invalida = 0;
-    printf("%s",shared_memory->users[0].nome);
+    printf("%s\n",shared_memory->users[0].nome);
 
     while (waitpid(-1, NULL, WNOHANG) > 0)
         ;
@@ -233,21 +233,23 @@ int main(int argc, char **argv) {
 int login(int fd) {
     char buffer[BUF_SIZE];
     memset(buffer,0,BUF_SIZE);
+
     // Read username
-    snprintf(buffer, BUF_SIZE, "Login:\n Username: ");
+    snprintf(buffer, BUF_SIZE, "Login:\nUsername: ");
     write(fd, buffer, BUF_SIZE);
     fflush(stdout);
     memset(buffer,0,BUF_SIZE);
     read(fd, buffer,BUF_SIZE);
-    printf("\nusername: %s", buffer);
+
     // Verify user
+    buffer[strlen(buffer)-1]='\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    int a;
     int i;
     int existe = 0;
     for (i = 0; i < shared_memory->num_utilizadores; i++) {
         char aux[BUF_SIZE];
         strcpy(aux, shared_memory->users[i].nome);
-        if (!strcmp(buffer, aux)) {
-            printf("\tTOP de mais!!\n");
+        if ((a = strcmp(buffer, aux))==0) {
             existe = 1;
             break;
         }
@@ -255,16 +257,18 @@ int login(int fd) {
 
     // Read password
     memset(buffer,0,BUF_SIZE);
-    snprintf(buffer, BUF_SIZE, "\nPassword: ");
+    snprintf(buffer, BUF_SIZE, "Password: ");
     write(fd, buffer, BUF_SIZE);
     memset(buffer,0,BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
+    buffer[strlen(buffer)-1]='\0';  // FIXME: tirar esta linha quando deixarmos de usar o nc
+
     // Verify password
     int password_correta = 0;
     if (existe) {
         char aux[50];
         strcpy(aux, shared_memory->users[i].password);
-        if (!strcmp(buffer, aux)) {
+        if ((a = strcmp(buffer, aux) )==0) {
             password_correta = 1;
         }
     }
