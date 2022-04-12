@@ -188,7 +188,15 @@ int main(int argc, char **argv) {
     client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
     printf("Client connected...\n");
 
-    login(client);
+    pid_t cpid = fork();
+    if (cpid == 0) {
+        // process_client(jogador);
+        if (login(client) == -1) {
+            close(fd);
+            close(client);
+            exit(0);
+        }
+    }
 
     // while (jogador < 11) {
     //     // clean finished child processes, avoiding zombies
@@ -225,6 +233,8 @@ int main(int argc, char **argv) {
     // terminar();
 
     // close socket
+    int status;//dentro de um de um for para quantos fork fizer!!
+    wait(&status);
     close(fd);
 
     return 0;
