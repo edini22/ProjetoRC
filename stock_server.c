@@ -81,7 +81,7 @@ void config(char *path) {
         i = 0;
         while (token != NULL) {
             if (i == 0) {
-                strcpy(shared_memory->users[0].nome, token);
+                strcpy(shared_memory->users[num].nome, token);
                 i++;
             }
 
