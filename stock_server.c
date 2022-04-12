@@ -34,7 +34,6 @@ int main(int argc, char **argv) {
     char path[200];
     strcpy(path, argv[3]);
 
-
     // TCP -----------------------------------
     bzero((void *)&addr, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -71,9 +70,11 @@ int main(int argc, char **argv) {
 
     config(path, shared_memory);
 
-    //login(client, shared_memory);
+    // login(client, shared_memory);
 
-    login_admin(s, shared_memory);
+    // login_admin(s, shared_memory);
+
+    pid_t pid;
 
     // sem_unlink("MUTEX_USER1");
     // sem_unlink("MUTEX_USER2");
@@ -83,38 +84,37 @@ int main(int argc, char **argv) {
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // int i = 0;
 
-    // cpid[i] = fork();
-    // if (cpid == 0) {
+    pid = fork();
+    if (pid == 0) {
 
-    //     while (waitpid(-1, NULL, WNOHANG) > 0)
-    //         ;
-    //     // wait for new connection TCP
-    //     client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
-    //     printf("Client connected...\n");
+        while (waitpid(-1, NULL, WNOHANG) > 0)
+            ;
+        // wait for new connection TCP
+        client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
+        printf("Client connected...\n");
 
-    //     pid_t cpid = fork();
-    //     if (cpid == 0) {
-    //         if (login(client, shared_memory) == -1) {
-    //             close(fd);
-    //             close(client);
-    //             exit(0);
-    //         }
-    //     }
-    // }
+        pid_t cpid = fork();
+        if (cpid == 0) {
+            if (login(client, shared_memory) == -1) {
+                close(fd);
+                close(client);
+                exit(0);
+            }
+            exit(0); // retirar este exit, so no caso de o login nao ser feito para ja
+        }
+        exit(0);
+    }
 
+    char buffer[BUF_SIZE];
+    while (login_admin(s, shared_memory, admin_addr) == -1)
+        ;
+    // Espera recepção de mensagem (a chamada é bloqueante)
+    if ((recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_addr, (socklen_t *)&slen)) == -1) {
+        erro("Erro no recvfrom");
+    }
+    // if ((send_len = sendto(s, palavra, strlen(palavra), 0, (struct sockaddr *)&si_minha, slen)) == -1) {
+    buffer[recv_len - 1] = '\0';
 
-    // cpid[i] = fork();
-    // if (cpid == 0) {
-    //     char buffer[BUF_SIZE];
-    //     while (login_admin(s, shared_memory, admin_addr) == -1)
-    //         ;
-    //     // Espera recepção de mensagem (a chamada é bloqueante)
-    //     if ((recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_addr, (socklen_t *)&slen)) == -1) {
-    //         erro("Erro no recvfrom");
-    //     }
-    //     // if ((send_len = sendto(s, palavra, strlen(palavra), 0, (struct sockaddr *)&si_minha, slen)) == -1) {
-    //     buffer[recv_len - 1] = '\0';
-    // }
     // int status;
     // wait(&status);
 
@@ -152,10 +152,12 @@ int main(int argc, char **argv) {
 
     // terminar();
 
-    for (int i = 0; i < 3; i++) {
-        wait(NULL);
+    while(wait(NULL)!=1 || errno!=ECHILD){
+        printf("wainted for a child to finish\n");
     }
+    //fechar os sockets no processo main!
     close(fd);
+    close(s);
 
     return 0;
 }
