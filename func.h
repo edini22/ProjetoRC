@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include<errno.h>
+#include <stdbool.h>
 
 #define BUF_SIZE 1024
 
@@ -32,27 +33,37 @@ typedef struct {
     int num_acoes;
 } mercado;
 
+//fifo
 typedef struct {
     char nome[50];
     char password[50];
     float saldo_inicial;
     mercado mercados[2];
-} user;
+} utilizador;
+
+typedef struct {
+    utilizador user;
+    bool ocupado;
+}utilizadores;
+
+//------
 
 typedef struct {
     char admin[2][30]; // [0]AdminName [1]AdminPassword
     int num_utilizadores;
-    user users[10];
+    utilizadores users[10];
     mercado mercados[2];
     int num_mercados;
+    int refresh_time;
 
     sem_t *mutex_compras;
-    // sem_t *mutex_user2;
+    sem_t *mutex_menu;
     // sem_t *mutex_login;
 
     pid_t childs_pid[2];
 
 } SM;
+
 
 void erro(char *msg);
 

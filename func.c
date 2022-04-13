@@ -22,6 +22,10 @@ void config(char *path, SM *shared_memory) {
     fscanf(fich, "%s", line);
     // guardar utilizadores
     shared_memory->num_utilizadores = atoi(line);
+    if (shared_memory->num_utilizadores > 5) {
+        printf("Demasiados users inseridos no ficheiro de configuracao, maximo de 5");
+        exit(1);
+    }
     int num = 0;
     while (num < shared_memory->num_utilizadores) {
         fscanf(fich, "%s", line);
@@ -29,16 +33,17 @@ void config(char *path, SM *shared_memory) {
         i = 0;
         while (token != NULL) {
             if (i == 0) {
-                strcpy(shared_memory->users[num].nome, token);
+                strcpy(shared_memory->users[num].user.nome, token);
                 i++;
             }
 
             else if (i == 1) {
-                strcpy(shared_memory->users[num].password, token);
+                strcpy(shared_memory->users[num].user.password, token);
                 i++;
             } else if (i == 2) {
                 char *pEnd;
-                shared_memory->users[num++].saldo_inicial = strtof(token, &pEnd);
+                shared_memory->users[num].ocupado = true;
+                shared_memory->users[num++].user.saldo_inicial = strtof(token, &pEnd);
             }
             token = strtok(NULL, ";");
         }
@@ -81,6 +86,11 @@ int login(int fd, SM *shared_memory) {
     char buffer[BUF_SIZE];
     memset(buffer, 0, BUF_SIZE);
 
+    if (shared_memory->num_utilizadores != 0) {
+        printf("Nao existem usuarios registados!");
+        exit(1);
+    }
+
     // Read username
     snprintf(buffer, BUF_SIZE, "Login:\nUsername: ");
     write(fd, buffer, BUF_SIZE);
@@ -93,12 +103,14 @@ int login(int fd, SM *shared_memory) {
     int a;
     int i;
     int existe = 0;
-    for (i = 0; i < shared_memory->num_utilizadores; i++) {
+    for (i = 0; i < 10; i++) {
         char aux[BUF_SIZE];
-        strcpy(aux, shared_memory->users[i].nome);
-        if ((a = strcmp(buffer, aux)) == 0) {
-            existe = 1;
-            break;
+        if (shared_memory->users[i].ocupado == true) {
+            strcpy(aux, shared_memory->users[i].user.nome);
+            if ((a = strcmp(buffer, aux)) == 0) {
+                existe = 1;
+                break;
+            }
         }
     }
 
@@ -114,7 +126,7 @@ int login(int fd, SM *shared_memory) {
     int password_correta = 0;
     if (existe) {
         char aux[50];
-        strcpy(aux, shared_memory->users[i].password);
+        strcpy(aux, shared_memory->users[i].user.password);
         if ((a = strcmp(buffer, aux)) == 0) {
             password_correta = 1;
         }
@@ -178,7 +190,7 @@ int login_admin(int s, SM *shared_memory) {
             password_correta = 1;
         }
     }
-    
+
     // Return success or unsuccess
     memset(buffer, 0, BUF_SIZE);
     if (!existe) {
@@ -196,11 +208,12 @@ int login_admin(int s, SM *shared_memory) {
     }
 }
 
-void terminar(int shm_id, SM *shared_memory){
+void terminar(int shm_id, SM *shared_memory) {
 
     sem_close(shared_memory->mutex_compras);
+    // sem_close(shared_memory->mutex_menu);
     sem_unlink("MUTEX_COMPRAS");
+    // sem_unlink("MUTEX_MENU");
     shmdt(shared_memory);
     shmctl(shm_id, IPC_RMID, NULL);
-    
 }
