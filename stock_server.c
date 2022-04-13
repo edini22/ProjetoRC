@@ -82,6 +82,7 @@ int main(int argc, char **argv) {
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // int i = 0;
 
+    // TCP =================================================================================
     pid = fork();
     if (pid == 0) {
 
@@ -103,19 +104,46 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
+    // UDP =================================================================================
     char buffer[BUF_SIZE];
     while (login_admin(s, shared_memory) == -1)
         ;
     // Espera recepção de mensagem (a chamada é bloqueante)
-    if ((recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_addr, (socklen_t *)&slen)) == -1) {
-        erro("Erro no recvfrom");
+    struct sockaddr_in admin_outra;
+    char buffer[BUF_SIZE];
+    memset(buffer, 0, BUF_SIZE);
+    socklen_t slen = sizeof(admin_outra);
+    int recv_len, send_len;
+
+    while (1) {
+
+        char *choice = strtok(buffer, " ");
+        int count = 0;
+
+        if (!strcmp(choice, "ADD_USER")) {
+            char argumentos[4][BUF_SIZE];
+            while (token != NULL) {
+
+                count++;
+                token = strtok(NULL, " ");
+            }
+            if(count!=4){
+                printf("Numero de parametros errado\n");
+            }
+            
+        } else if (!strcmp(choice, "DEL")) {
+
+        } else if (!strcmp(choice, "REFRESH")) {
+
+        } else if (!strcmp(choice, "QUIT")) {
+
+        } else if (!strcmp(choice, "QUIT_SERVER")) {
+            break;
+        }
     }
-    // if ((send_len = sendto(s, palavra, strlen(palavra), 0, (struct sockaddr *)&si_minha, slen)) == -1) {
-    buffer[recv_len - 1] = '\0';
 
     // int status;
     // wait(&status);
-
 
     // wait(&status);
     // if (WEXITSTATUS(status) == 1)
@@ -128,10 +156,10 @@ int main(int argc, char **argv) {
 
     terminar(shm_id, shared_memory);
 
-    while(wait(NULL)!=1 || errno!=ECHILD){
+    while (wait(NULL) != 1 || errno != ECHILD) {
         printf("wainted for a child to finish\n");
     }
-    //fechar os sockets no processo main!
+    // fechar os sockets no processo main!
     close(fd);
     close(s);
 
