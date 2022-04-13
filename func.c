@@ -190,13 +190,13 @@ int login_admin(int s, SM *shared_memory) {
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return -1;
     } else {
-        snprintf(buffer, BUF_SIZE, "\nLogin (admin) efetuado com sucesso!\n");
+        snprintf(buffer, BUF_SIZE, "\nLogin (admin) efetuado com sucesso!\nClique enter para continuar");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return 1;
     }
 }
 
-void terminar(int shm_id, SM *shared){
+void terminar(int shm_id, SM *shared_memory){
 
     sem_close(shared_memory->mutex_compras);
     sem_unlink("MUTEX_COMPRAS");

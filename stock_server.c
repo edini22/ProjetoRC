@@ -108,38 +108,96 @@ int main(int argc, char **argv) {
     char buffer[BUF_SIZE];
     while (login_admin(s, shared_memory) == -1)
         ;
-    // Espera recepção de mensagem (a chamada é bloqueante)
+
     struct sockaddr_in admin_outra;
-    char buffer[BUF_SIZE];
-    memset(buffer, 0, BUF_SIZE);
-    socklen_t slen = sizeof(admin_outra);
-    int recv_len, send_len;
+    char menu[] = "\nMENU:\nADD_USER {username} {password} {bolsas a que tem acesso} {saldo}\nDEL {username}\nLIST\nREFRESH {segundos}\nQUIT\nQUIT_SERVER\n\n";
 
-    while (1) {
+    while (1) { // MENU ADMIN
 
+        // Esperara pelo \n do cliente depois do login
+        recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen);
+
+        // Mostrar o menu
+        sendto(s, menu, strlen(menu), 0, (struct sockaddr *)&admin_outra, slen);
+
+        // Comando usado pelo Admin
+        memset(buffer, 0, BUF_SIZE);
+        if (recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen) == -1) {
+            erro("funcao recvfrom");
+        }
+
+        // Separar os argumentos dos comandos
+        buffer[strlen(buffer) - 1] = '\0';
         char *choice = strtok(buffer, " ");
         int count = 0;
+        char *token = strtok(buffer, " ");
 
+        // Opcoes
         if (!strcmp(choice, "ADD_USER")) {
             char argumentos[4][BUF_SIZE];
+            printf("Entrou dentro do add user\n");
             while (token != NULL) {
-
+                strcpy(argumentos[count], token);
                 count++;
                 token = strtok(NULL, " ");
             }
-            if(count!=4){
+            if (count < 4 || count > 5) {
                 printf("Numero de parametros errado\n");
+                printf("Count: %d\n", count);
+            } else {
+                // if(shared_memory->num_utilizadores < 10){
+                //     printf("Count: %d", count);
+                //     for(int i = 0;i<count;i++){
+                //         if(i ==0)
+                //         strcpy(shared_memory->users[shared_memory->num_utilizadores].nome,argumentos[i]);
+                //         else if(i == 1){
+                //             strcpy(shared_memory->users[shared_memory->num_utilizadores].password,argumentos[i]);
+                //         }
+                //         else if(i == 2){
+                //             if(count == 4){//tem acesso apenas a 1 mercado
+                //                 int c = 0;
+                //                 for(int n = 0;n<shared_memory->num_mercados;n++){
+                //                     char aux[BUF_SIZE];
+                //                     strcmp(aux,shared_memory->mercados[n].nome);
+                //                     if(strcmp(aux,argumentos[i])){
+                //                         c++;
+                //                         //shared_memory->users[shared_memory->num_utilizadores].mercados[]
+                //                     }
+                //                 }
+                //             }else{//tem acesso a 2 mercados
+
+                //             }
+                //         }
+                //     }
+
+                // }
             }
-            
+
         } else if (!strcmp(choice, "DEL")) {
 
         } else if (!strcmp(choice, "REFRESH")) {
 
         } else if (!strcmp(choice, "QUIT")) {
+            // Fechar a conexao UDP e voltar a abrir para se o admin quizer logar outra vez
+            close(s);
+            
+            if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+                erro("na funcao socket (UDP)");
+            }
+
+            admin_addr.sin_family = AF_INET;
+            admin_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+            admin_addr.sin_port = htons(SERVER_CONFIG);
+
+            if (bind(s, (struct sockaddr *)&admin_addr, sizeof(admin_addr)) == -1) {
+                erro("na funcao bind (UDP)");
+            }
 
         } else if (!strcmp(choice, "QUIT_SERVER")) {
+            printf("A encerrar o servidor...\n");
             break;
         }
+        memset(buffer, 0, BUF_SIZE);
     }
 
     // int status;
@@ -156,12 +214,14 @@ int main(int argc, char **argv) {
 
     terminar(shm_id, shared_memory);
 
-    while (wait(NULL) != 1 || errno != ECHILD) {
-        printf("wainted for a child to finish\n");
-    }
+    // while (wait(NULL) != 1 || errno != ECHILD) {
+    //     printf("wainted for a child to finish\n");
+    // }
+
     // fechar os sockets no processo main!
     close(fd);
     close(s);
+    kill(pid, SIGKILL);
 
     return 0;
 }
