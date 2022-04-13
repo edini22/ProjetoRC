@@ -72,19 +72,16 @@ int login_admin(int s, SM *shared_memory) {
     socklen_t slen = sizeof(admin_outra);
     int recv_len, send_len;
 
-    // Read username
-    snprintf(buffer, BUF_SIZE, "Login:\nUsername(Admin): ");
-    if (sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen) == -1)
-        erro("funcao sendto\n");
-    fflush(stdout);
+    // O admin comeca por enviar o username
+
     memset(buffer, 0, BUF_SIZE);
     if (recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen) == -1)
         erro("funcao recvfrom");
-    printf("Teste\n");
 
     // Verify user
-    buffer[recv_len - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
     int i;
+    int a;
     int existe = 0;
     char aux[BUF_SIZE];
     strcpy(aux, shared_memory->admin[0]);
@@ -98,30 +95,30 @@ int login_admin(int s, SM *shared_memory) {
     sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
     memset(buffer, 0, BUF_SIZE);
     recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen);
-    buffer[recv_len - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
 
     // Verify password
     int password_correta = 0;
     if (existe) {
         char aux[50];
         strcpy(aux, shared_memory->admin[1]);
-        if (!strcmp(buffer, aux) == 0) {
+        if (!strcmp(buffer, aux)) {
             password_correta = 1;
         }
     }
-
+    
     // Return success or unsuccess
     memset(buffer, 0, BUF_SIZE);
     if (!existe) {
-        snprintf(buffer, BUF_SIZE, "\nO Username nao existe");
+        snprintf(buffer, BUF_SIZE, "\nO Username nao existe\n");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return -1;
     } else if (existe && !password_correta) {
-        snprintf(buffer, BUF_SIZE, "\nPassword incorreta");
+        snprintf(buffer, BUF_SIZE, "\nPassword incorreta\n");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return -1;
     } else {
-        snprintf(buffer, BUF_SIZE, "\nLogin efetuado com sucesso!");
+        snprintf(buffer, BUF_SIZE, "\nLogin (admin) efetuado com sucesso!\n");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return 1;
     }
@@ -197,4 +194,13 @@ void config(char *path, SM *shared_memory) {
         }
     }
     fclose(fich);
+}
+
+void terminar(int shm_id, SM *shared_memory){
+
+    sem_close(shared_memory->mutex_compras);
+    sem_unlink("MUTEX_COMPRAS");
+    shmdt(shared_memory);
+    shmctl(shm_id, IPC_RMID, NULL);
+    
 }

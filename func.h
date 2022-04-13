@@ -40,13 +40,13 @@ typedef struct {
 } user;
 
 typedef struct {
-    char admin[2][30]; //[0] AdminName [1]AdminPassword
+    char admin[2][30]; // [0]AdminName [1]AdminPassword
     int num_utilizadores;
     user users[10];
     mercado mercados[2];
     int num_mercados;
 
-    // sem_t *mutex_user1;
+    sem_t *mutex_compras;
     // sem_t *mutex_user2;
     // sem_t *mutex_login;
 
@@ -61,5 +61,7 @@ int login(int fd, SM *shared_memory);
 int login_admin(int s, SM *shared_memory);
 
 void config(char *path, SM *shared_memory);
+
+void terminar(int shm_id, SM *shared_memory);
 
 #endif

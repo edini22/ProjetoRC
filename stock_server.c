@@ -1,6 +1,8 @@
 // stock_server {PORTO_BOLSA} {PORTO_CONFIG} {ficheiro configuração}
 // Server<->Cliente TCP
 // Server<->Consola_Admin UDP
+// TCP - nc -v localhost 9000
+// UDP - nc -u -4 localhost 9001
 
 #include "func.h"
 
@@ -70,16 +72,12 @@ int main(int argc, char **argv) {
 
     config(path, shared_memory);
 
-    // login(client, shared_memory);
-
-    // login_admin(s, shared_memory);
-
     pid_t pid;
 
-    // sem_unlink("MUTEX_USER1");
+    sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_USER2");
     // sem_unlink("MUTEX_LOGIN");
-    // shared_memory->mutex_user1 = sem_open("MUTEX_USER1", O_CREAT | O_EXCL, 0700, 1);
+    shared_memory->mutex_compras = sem_open("MUTEX_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
     // shared_memory->mutex_user2 = sem_open("MUTEX_USER2", O_CREAT | O_EXCL, 0700, 0);
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // int i = 0;
@@ -106,7 +104,7 @@ int main(int argc, char **argv) {
     }
 
     char buffer[BUF_SIZE];
-    while (login_admin(s, shared_memory, admin_addr) == -1)
+    while (login_admin(s, shared_memory) == -1)
         ;
     // Espera recepção de mensagem (a chamada é bloqueante)
     if ((recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_addr, (socklen_t *)&slen)) == -1) {
@@ -118,28 +116,6 @@ int main(int argc, char **argv) {
     // int status;
     // wait(&status);
 
-    // while (jogador < 11) {
-    //     // clean finished child processes, avoiding zombies
-    //     // must use WNOHANG or would block whenever a child process was working
-    //     while (waitpid(-1, NULL, WNOHANG) > 0)
-    //         ;
-    //     // wait for new connection
-    //     client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
-
-    //     // Store client socket
-    //     shared_memory->users[jogador++]->clients_fd = client;
-
-    //     printf("Client %d connected...\n", jogador);
-    //     pid_t cpid = fork();
-    //     if (cpid == 0) {
-    //         // process_client(jogador);
-    //         close(fd);
-    //         close(client);
-    //         exit(0);
-    //     }
-
-    //     // shared_memory->childs_pid[jogador - 1] = cpid;
-    // }
 
     // wait(&status);
     // if (WEXITSTATUS(status) == 1)
@@ -150,7 +126,7 @@ int main(int argc, char **argv) {
     // close(shared_memory->clients_fd[0]);
     // close(shared_memory->clients_fd[1]);
 
-    // terminar();
+    terminar(shm_id, shared_memory);
 
     while(wait(NULL)!=1 || errno!=ECHILD){
         printf("wainted for a child to finish\n");
