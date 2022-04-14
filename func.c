@@ -51,35 +51,27 @@ void config(char *path, SM *shared_memory) {
     }
 
     // guardar os mercados
-    while (fscanf(fich, "%[^\n] ", line) != EOF) {
+    int merc = 0;
+    while (fscanf(fich, "%s", line) != EOF) {
         char *token = strtok(line, ";");
-        int merc = 0;
-        if (shared_memory->num_mercados != 0) {
-            char mercado[BUF_SIZE];
-            memset(mercado, 0, BUF_SIZE);
-            strcpy(mercado, shared_memory->mercados[0].nome);
-            printf("mercado = %s / line = %s\n", mercado, line);
-            if (strcmp(mercado, line)) {
-                merc = 1;
-            } 
-        }
-        i = 0;
+        int l = 0;
         while (token != NULL) {
-            printf("token = %s\n", token);
-            int a = shared_memory->mercados[merc].num_acoes;
-            if (i == 0 && a == 0) {
+            printf("token = %s|%d\n", token,l);
+            if (l == 0 && shared_memory->mercados[merc].num_acoes == 0) {
                 printf("merc: %d\n",merc);
                 strcpy(shared_memory->mercados[merc].nome, line);
                 shared_memory->num_mercados++;
-                i++;
-            } else if (i == 1) {
-                strcpy(shared_memory->mercados[merc].acoes[a].nome, token);
-                i++;
-            } else if (i == 2) {
-                shared_memory->mercados[merc].acoes[a].preco_inicial = (float)atof(token);
+            } else if (l == 1) {
+                strcpy(shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].nome, token);
+            } else if (l == 2) {
+                shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].preco_inicial = (float)atof(token);
                 shared_memory->mercados[merc].num_acoes++;
+                printf("\n%d\n",shared_memory->mercados[merc].num_acoes);
             }
+            if(shared_memory->mercados[merc].num_acoes == 3)
+                merc++;
             token = strtok(NULL, ";");
+            l++;
         }
     }
     fclose(fich);
@@ -89,7 +81,7 @@ int login(int fd, SM *shared_memory) {
     char buffer[BUF_SIZE];
     memset(buffer, 0, BUF_SIZE);
 
-    if (shared_memory->num_utilizadores != 0) {
+    if (shared_memory->num_utilizadores == 0) {
         printf("Nao existem usuarios registados!");
         exit(1);
     }
@@ -219,4 +211,26 @@ void terminar(int shm_id, SM *shared_memory) {
     // sem_unlink("MUTEX_MENU");
     shmdt(shared_memory);
     shmctl(shm_id, IPC_RMID, NULL);
+}
+
+
+void add_cpid(int cliente, SM *shared_memory){
+    for(int i = 0; i<5; i++){
+        if (shared_memory->atuais[i].ocupado==false){
+            shared_memory->atuais[i].ocupado==true;
+            shared_memory->atuais[i].c_pid = cliente;
+            shared_memory->clientes_atuais++;
+            break;
+        }
+    }
+}
+
+void remove_cpid(int cliente, SM *shared_memory){
+    for(int i = 0; i<5; i++){
+        if (cliente == shared_memory->atuais[i].ocupado){
+            shared_memory->atuais[i].ocupado = false;
+            shared_memory->clientes_atuais--;
+            break;
+        }
+    }
 }

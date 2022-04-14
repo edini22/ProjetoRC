@@ -3,10 +3,12 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,10 +18,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-#include<errno.h>
-#include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 
 #define BUF_SIZE 1024
 
@@ -34,7 +34,7 @@ typedef struct {
     int num_acoes;
 } mercado;
 
-//fifo
+// fifo
 typedef struct {
     char nome[50];
     char password[50];
@@ -46,7 +46,12 @@ typedef struct {
 typedef struct {
     utilizador user;
     bool ocupado;
-}utilizadores;
+} utilizadores;
+
+typedef struct{
+    pid_t c_pid;
+    bool ocupado;
+}processo;
 
 //------
 
@@ -58,14 +63,14 @@ typedef struct {
     int num_mercados;
     clock_t refresh_time;
 
+    int clientes_atuais; // numero de clientes a acessar o servidor ao mesmo tempo
+
     sem_t *mutex_compras;
     sem_t *mutex_menu;
     // sem_t *mutex_login;
-
-    pid_t childs_pid[2];
+    processo atuais[5];
 
 } SM;
-
 
 void erro(char *msg);
 
@@ -76,5 +81,9 @@ int login_admin(int s, SM *shared_memory);
 void config(char *path, SM *shared_memory);
 
 void terminar(int shm_id, SM *shared_memory);
+
+void add_cpid(int cliente, SM *shared_memory);
+
+void remove_cpid(int cliente, SM *shared_memory);
 
 #endif

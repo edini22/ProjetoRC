@@ -71,6 +71,10 @@ int main(int argc, char **argv) {
     shared_memory->mercados[0].num_acoes = 0;
     shared_memory->mercados[1].num_acoes = 0;
     shared_memory->num_mercados = 0;
+    shared_memory->clientes_atuais = 0;
+    for(int i = 0; i<5; i++){
+        shared_memory->atuais[i].ocupado = false;
+    }
 
     config(path, shared_memory);
 
@@ -117,21 +121,39 @@ int main(int argc, char **argv) {
     pid = fork();
     if (pid == 0) {
 
-        while (waitpid(-1, NULL, WNOHANG) > 0)
-            ;
-        // wait for new connection TCP
-        client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
-        printf("Client connected...\n");
+        while (shared_memory->clientes_atuais < 5) {
+            while (waitpid(-1, NULL, WNOHANG) > 0)
+                ;
+            // wait for new connection TCP
+            client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
+            printf("Client connected...\n");
 
-        pid_t cpid = fork();
-        if (cpid == 0) {
-            if (login(client, shared_memory) == -1) {
-                close(fd);
-                close(client);
-                exit(0);
+
+            pid_t cpid = fork();
+            if (cpid == 0) {
+                if (login(client, shared_memory) == -1) {
+                    close(fd);
+                    close(client);
+                    exit(0);
+                } else {
+                    // TODO: coisas que o user pode fazer
+                    add_cpid(client, shared_memory);
+
+                    printf("Cliente %d logado\n", shared_memory->clientes_atuais);
+
+                    int sair = 0;
+                    if(sair){
+                        remove_cpid(cliente, shared_memory);
+                        close(fd);
+                        close(client);
+                        exit(0);
+                    }
+
+                    
+                }
             }
-            exit(0); // retirar este exit, so no caso de o login nao ser feito para ja
         }
+
         exit(0);
     }
 
@@ -198,11 +220,11 @@ int main(int argc, char **argv) {
                 //                     shared_memory->users[i].ocupado = false;
                 //                     shared_memory->num_utilizadores--;
                 //                     printf("user %s removido!", aux);
-                //                     break;
                 //                 }
                 //             }
                 //             tok = strtok(NULL, " ");
                 //         }
+                //         if(existe)break;
                 //     }
                 // }
 
@@ -299,7 +321,7 @@ int main(int argc, char **argv) {
                             snprintf(aux2, BUF_SIZE, "Mercados do user:\n");
                             strcat(aux, aux2);
                             for (int j = 0; i < shared_memory->users[i].user.num_mercados; j++) {
-                                snprintf(aux2, BUF_SIZE, "%s\n", shared_memory->users[i].user.mercados[j].nome);
+                                snprintf(aux2, BUF_SIZE, " %s \n", shared_memory->users[i].user.mercados[j].nome);
                                 strcat(aux, aux2);
                             }
                         }
