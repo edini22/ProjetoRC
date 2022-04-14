@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include<errno.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define BUF_SIZE 1024
 
@@ -39,6 +40,7 @@ typedef struct {
     char password[50];
     float saldo_inicial;
     mercado mercados[2];
+    int num_mercados;
 } utilizador;
 
 typedef struct {
@@ -54,7 +56,7 @@ typedef struct {
     utilizadores users[10];
     mercado mercados[2];
     int num_mercados;
-    int refresh_time;
+    clock_t refresh_time;
 
     sem_t *mutex_compras;
     sem_t *mutex_menu;

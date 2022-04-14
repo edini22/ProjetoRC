@@ -6,8 +6,6 @@
 
 #include "func.h"
 
-#define BUF_SIZE 1024
-
 int shm_id;
 SM *shared_memory;
 
@@ -70,9 +68,11 @@ int main(int argc, char **argv) {
     // Attach
     shared_memory = shmat(shm_id, NULL, 0);
 
-    config(path, shared_memory);
+    shared_memory->mercados[0].num_acoes = 0;
+    shared_memory->mercados[1].num_acoes = 0;
+    shared_memory->num_mercados = 0;
 
-    pid_t pid;
+    config(path, shared_memory);
 
     sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_MENU");
@@ -83,7 +83,37 @@ int main(int argc, char **argv) {
     // int i = 0;
     shared_memory->refresh_time = 2;
 
+    printf("A iniciar o servidor...\n");
+
+    // REFRESH
+    pid_t pid_refresh;
+    pid_refresh = fork();
+    if (pid_refresh == 0) {
+        while (1) {
+            sem_wait(shared_memory->mutex_compras);
+            // printf("\n------------------acao!---------------------\n");
+            sleep(shared_memory->refresh_time);
+            for (int m = 0; m < shared_memory->num_mercados; m++) {
+                for (int a = 0; a < shared_memory->mercados[m].num_acoes; a++) {
+                    if (shared_memory->mercados[m].acoes[a].preco_inicial >= 0.02) {
+                        time_t t;
+                        srand((unsigned)time(&t));
+                        int r = rand() % 2;
+                        if (r == 0)
+                            shared_memory->mercados[m].acoes[a].preco_inicial -= 0.01;
+                        else
+                            shared_memory->mercados[m].acoes[a].preco_inicial += 0.01;
+                    } else {
+                        shared_memory->mercados[m].acoes[a].preco_inicial += 0.01;
+                    }
+                }
+            }
+            sem_post(shared_memory->mutex_compras);
+        }
+    }
+
     // TCP =================================================================================
+    pid_t pid;
     pid = fork();
     if (pid == 0) {
 
@@ -105,9 +135,12 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
+    printf("mercado1: %s---\n", shared_memory->mercados[0].nome);
+    printf("mercado2: %s----\n", shared_memory->mercados[1].nome);
+    printf("Num mercados: %d\n", shared_memory->num_mercados);
+
     // UDP =================================================================================
     char buffer[BUF_SIZE];
-    printf("0\n");
     while (login_admin(s, shared_memory) == -1)
         ;
 
@@ -123,7 +156,7 @@ int main(int argc, char **argv) {
         sendto(s, menu, strlen(menu), 0, (struct sockaddr *)&admin_outra, slen);
 
         // Comando usado pelo Admin
-        printf("sendto\n");
+        // printf("sendto\n");
         memset(buffer, 0, BUF_SIZE);
         if (recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen) == -1) {
             erro("funcao recvfrom");
@@ -143,56 +176,139 @@ int main(int argc, char **argv) {
             token = strtok(NULL, " ");
         }
         printf("Count: %d\n", count);
-        if (!strcmp(buffer, "ADD_USER")) {
+
+        if (!strcmp(buffer, "ADD_USER")) { // ------------------------------------------
             printf("Entrou dentro do add user\n");
 
             if (count <= 4 || count >= 6) {
-                printf("Numero de parametros errado. Clique enter para continuar");
+                printf("Numero de parametros errado. Clique enter para continuar\n");
             } else {
+                bool existe = false;
+                // for (int i = 0; i < 10; i++) { // verificar se o user existe
+                //     if (shared_memory->users[i].ocupado) {
+                //         printf("1");
+                //         char aux[BUF_SIZE];
+                //         strcpy(aux, shared_memory->users[i].user.nome);
+                //         char *tok = strtok(buffer2, " ");
+                //         for (int n = 0; n < count; n++) {
+                //             if (n == 1) {
+                //                 if (!strcmp(tok, aux)) {
+                //                     printf("O user existe:)\n");
+                //                     existe = true;
+                //                     shared_memory->users[i].ocupado = false;
+                //                     shared_memory->num_utilizadores--;
+                //                     printf("user %s removido!", aux);
+                //                     break;
+                //                 }
+                //             }
+                //             tok = strtok(NULL, " ");
+                //         }
+                //     }
+                // }
+
                 if (shared_memory->num_utilizadores < 10) {
-                    for (int i = 0; i < 10; i++) { // TODO: verificar se o user existe
-                    }
+                    if (!existe) {
+                        for (int i = 0; i < 10; i++) { // colocar novo user!!!
+                            if (shared_memory->users[i].ocupado == false) {
 
-                    for (int i = 0; i < 10; i++) { // colocar novo user!!!
-                        if (shared_memory->users[i].ocupado == false) {
-                            int n_mercados = 0;
-
-                            char *tok = strtok(buffer2, " ");
-                            for (int n = 0; n < count; n++) {
-                                printf("%s\n", tok);
-                                if (n == 1) {
-                                    strcpy(shared_memory->users[i].user.nome, tok);
-                                } else if (n == 2) {
-                                    strcpy(shared_memory->users[i].user.password,tok);
-                                } else if ((n == 3 && count == 5) || (n == 3 && count == 6) || (n == 4 && count == 6)) {
-                                    if (shared_memory->num_mercados != 0) {
-                                        for (int j = 0; j < shared_memory->num_mercados; j++) {
-                                            char aux[BUF_SIZE];
-                                            strcpy(aux, shared_memory->mercados[j].nome);
-                                            if (!strcmp(aux, tok))
-                                                strcpy(shared_memory->users[i].user.mercados[n_mercados].nome,aux);
-                                            n_mercados++;
-                                            break;
+                                char *tok = strtok(buffer2, " ");
+                                for (int n = 0; n < count; n++) {
+                                    printf("%s\n", tok);
+                                    if (n == 1) {
+                                        shared_memory->users[i].user.num_mercados = 0;
+                                        strcpy(shared_memory->users[i].user.nome, tok);
+                                    } else if (n == 2) {
+                                        strcpy(shared_memory->users[i].user.password, tok);
+                                    } else if ((n == 3 && count == 5) || (n == 3 && count == 6) || (n == 4 && count == 6)) {
+                                        if (shared_memory->num_mercados != 0) {
+                                            printf("mercado !=0!!\n");
+                                            for (int j = 0; j < shared_memory->num_mercados; j++) {
+                                                printf("j = %d\n", j);
+                                                char aux[BUF_SIZE];
+                                                strcpy(aux, shared_memory->mercados[j].nome);
+                                                printf("%s -> %d\n", aux, strcmp(aux, tok));
+                                                if (!strcmp(aux, tok)) {
+                                                    printf("add_mercado!!");
+                                                    strcpy(shared_memory->users[i].user.mercados[shared_memory->users[i].user.num_mercados].nome, aux);
+                                                    shared_memory->users[i].user.num_mercados++;
+                                                }
+                                            }
                                         }
+                                    } else if ((n == 4 && count == 5) || (n == 5 && count == 6)) {
+                                        shared_memory->users[i].user.saldo_inicial = (float)atof(tok);
+                                        shared_memory->users[i].ocupado = true;
+                                        shared_memory->num_utilizadores++;
                                     }
-                                } else if ((n == 4 && count == 5) || (n == 5 && count == 6)) {
-                                    shared_memory->users[i].user.saldo_inicial = (float)atof(tok);
-                                    shared_memory->users[i].ocupado = true;
-                                    shared_memory->num_utilizadores++;
+                                    tok = strtok(NULL, " ");
                                 }
-                                tok = strtok(NULL, " ");
+                                break;
                             }
-                            break;
                         }
                     }
+                } else {
+                    printf("Atingiu o numero maximo de utilizadores.\n");
                 }
             }
+        }
 
-        } else if (!strcmp(buffer, "DEL")) {//PROCURAR NO ARRAY E COLOCAR O BOOL A FALSE!!
-
-        } else if (!strcmp(buffer, "LIST")) {//PROCURAR NO ARRAY DE USERS QUE ESTEJAM A TRUE E IMPRIMIR!!
-
-        }else if (!strcmp(buffer, "REFRESH")) {
+        else if (!strcmp(buffer, "DEL")) { // PROCURAR NO ARRAY E COLOCAR O BOOL A FALSE!!
+            if (shared_memory->num_utilizadores == 0) {
+                printf("Nao existem utilizadores registados!\n");
+            } else {
+                bool existe = false;
+                char *tok = strtok(buffer2, " ");
+                for (int n = 0; n < 2; n++) {
+                    printf("%s\n", tok);
+                    if (n == 1) {
+                        for (int i = 0; i < 10; i++) {
+                            if (shared_memory->users[i].ocupado == true) {
+                                char aux[BUF_SIZE];
+                                strcpy(aux, shared_memory->users[i].user.nome);
+                                if (!strcmp(aux, tok)) { // se der erro, falta memset nas variaveis :)
+                                    existe = true;
+                                    shared_memory->users[i].ocupado = false;
+                                    shared_memory->num_utilizadores--;
+                                    printf("user %s removido!", aux);
+                                    break;
+                                }
+                            }
+                        }
+                        if (!existe)
+                            printf("Nao existe nenhum user com esse nome registado!\n");
+                    }
+                    tok = strtok(NULL, " ");
+                }
+            }
+        } else if (!strcmp(buffer, "LIST")) { // TODO: SENDTO para o cliente!
+            if (shared_memory->num_utilizadores == 0) {
+                printf("Nao existem utilizadores registados!\n");
+            } else {
+                char print[BUF_SIZE];
+                memset(print, 0, BUF_SIZE);
+                for (int i = 0; i < 10; i++) {
+                    if (shared_memory->users[i].ocupado == true) {
+                        char aux[BUF_SIZE];
+                        memset(aux, 0, BUF_SIZE);
+                        snprintf(aux, BUF_SIZE, "Nome: %s Password: %s Saldo: %4.2f\n ", shared_memory->users[i].user.nome, shared_memory->users[i].user.password, shared_memory->users[i].user.saldo_inicial);
+                        char aux2[BUF_SIZE];
+                        if (shared_memory->users[i].user.num_mercados == 0) {
+                            printf("mercados = %d\n", shared_memory->users[i].user.num_mercados);
+                            snprintf(aux2, BUF_SIZE, "O user ainda nao tem mercados\n");
+                            strcat(print, aux2);
+                        } else {
+                            snprintf(aux2, BUF_SIZE, "Mercados do user:\n");
+                            strcat(aux, aux2);
+                            for (int j = 0; i < shared_memory->users[i].user.num_mercados; j++) {
+                                snprintf(aux2, BUF_SIZE, "%s\n", shared_memory->users[i].user.mercados[j].nome);
+                                strcat(aux, aux2);
+                            }
+                        }
+                        strcat(print, aux);
+                    }
+                }
+                printf("%s", print); // debug
+            }
+        } else if (!strcmp(buffer, "REFRESH")) { // ------------------------------------------
             if (count == 2) {
                 char *tok = strtok(buffer2, " ");
                 for (int n = 0; n < 2; n++) {
@@ -203,10 +319,23 @@ int main(int argc, char **argv) {
                     tok = strtok(NULL, " ");
                 }
             }
+        } else if (!strcmp(buffer, "QUIT")) { // FECHAR A LIGACAO, ACHO QUE É PRECISO FAZER UM NOVO FORK E UM RECVFROM
+            close(s);
 
-        } else if (!strcmp(buffer, "QUIT")) {//FECHAR A LIGACAO, ACHO QUE É PRECISO FAZER UM NOVO FORK E UM RECVFROM
+            if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+                erro("na funcao socket (UDP)");
+            }
 
-        } else if (!strcmp(buffer, "QUIT_SERVER")) {
+            admin_addr.sin_family = AF_INET;
+            admin_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+            admin_addr.sin_port = htons(SERVER_CONFIG);
+
+            if (bind(s, (struct sockaddr *)&admin_addr, sizeof(admin_addr)) == -1) {
+                erro("na funcao bind (UDP)");
+            }
+
+            printf("O admin saiu\n");
+        } else if (!strcmp(buffer, "QUIT_SERVER")) { // ------------------------------------------
             printf("A encerrar o servidor...\n");
             break;
         }
@@ -234,6 +363,7 @@ int main(int argc, char **argv) {
     close(fd);
     close(s);
     kill(pid, SIGKILL);
+    kill(pid_refresh, SIGKILL);
 
     return 0;
 }

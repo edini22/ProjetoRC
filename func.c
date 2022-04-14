@@ -33,6 +33,7 @@ void config(char *path, SM *shared_memory) {
         i = 0;
         while (token != NULL) {
             if (i == 0) {
+                shared_memory->users[num].user.num_mercados = 0;
                 strcpy(shared_memory->users[num].user.nome, token);
                 i++;
             }
@@ -52,29 +53,31 @@ void config(char *path, SM *shared_memory) {
     // guardar os mercados
     while (fscanf(fich, "%[^\n] ", line) != EOF) {
         char *token = strtok(line, ";");
+        int merc = 0;
+        if (shared_memory->num_mercados != 0) {
+            char mercado[BUF_SIZE];
+            memset(mercado, 0, BUF_SIZE);
+            strcpy(mercado, shared_memory->mercados[0].nome);
+            printf("mercado = %s / line = %s\n", mercado, line);
+            if (strcmp(mercado, line)) {
+                merc = 1;
+            } 
+        }
         i = 0;
         while (token != NULL) {
-            int merc = 0;
-            if (shared_memory->num_mercados != 0) {
-                char mercado[50];
-                strcpy(mercado, shared_memory->mercados[0].nome);
-                if (strcmp(mercado, line)) {
-                    merc = 1;
-                    if (shared_memory->mercados[merc].num_acoes == 0)
-                        shared_memory->mercados[merc].num_acoes++;
-                }
-            }
-            if (shared_memory->num_mercados == 0)
-                shared_memory->num_mercados++;
+            printf("token = %s\n", token);
             int a = shared_memory->mercados[merc].num_acoes;
-            if (i == 0) {
-                strcpy(shared_memory->mercados[merc].nome, token);
+            if (i == 0 && a == 0) {
+                printf("merc: %d\n",merc);
+                strcpy(shared_memory->mercados[merc].nome, line);
+                shared_memory->num_mercados++;
                 i++;
             } else if (i == 1) {
                 strcpy(shared_memory->mercados[merc].acoes[a].nome, token);
                 i++;
             } else if (i == 2) {
                 shared_memory->mercados[merc].acoes[a].preco_inicial = (float)atof(token);
+                shared_memory->mercados[merc].num_acoes++;
             }
             token = strtok(NULL, ";");
         }
@@ -194,7 +197,7 @@ int login_admin(int s, SM *shared_memory) {
     // Return success or unsuccess
     memset(buffer, 0, BUF_SIZE);
     if (!existe) {
-        snprintf(buffer, BUF_SIZE, "\nO Username nao existe\n");
+        snprintf(buffer, BUF_SIZE, "\nO Username (Admin) nao existe\n");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
         return -1;
     } else if (existe && !password_correta) {
