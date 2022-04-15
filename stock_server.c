@@ -157,8 +157,8 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    printf("mercado1: %s---\n", shared_memory->mercados[0].nome);
-    printf("mercado2: %s----\n", shared_memory->mercados[1].nome);
+    printf("mercado1: %s\n", shared_memory->mercados[0].nome);
+    printf("mercado2: %s\n", shared_memory->mercados[1].nome);
     printf("Num mercados: %d\n", shared_memory->num_mercados);
 
     // UDP =================================================================================
@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
                 printf("%s", buffer);
 
             } else {
-                    
+
                 char *toke = strtok(buffer3, " ");
                 for (int n = 0; n < 2; n++) {
                     printf("%s\n", toke);

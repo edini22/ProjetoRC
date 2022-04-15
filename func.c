@@ -52,26 +52,36 @@ void config(char *path, SM *shared_memory) {
 
     // guardar os mercados
     int merc = 0;
+    int condicao = 0;
     while (fscanf(fich, "%s", line) != EOF) {
         char *token = strtok(line, ";");
         int l = 0;
         while (token != NULL) {
-            printf("token = %s|%d\n", token,l);
-            if (l == 0 && shared_memory->mercados[merc].num_acoes == 0) {
-                printf("merc: %d\n",merc);
-                strcpy(shared_memory->mercados[merc].nome, line);
-                shared_memory->num_mercados++;
-            } else if (l == 1) {
-                strcpy(shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].nome, token);
-            } else if (l == 2) {
-                shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].preco_inicial = (float)atof(token);
-                shared_memory->mercados[merc].num_acoes++;
-                printf("\n%d\n",shared_memory->mercados[merc].num_acoes);
+            if (condicao != 0 && l == 0) {
+                char mercado[BUF_SIZE];
+                strcpy(mercado, shared_memory->mercados[0].nome);
+                if (strcmp(mercado, token))
+                    merc = 1;
+                else
+                    merc = 0;
             }
-            if(shared_memory->mercados[merc].num_acoes == 3)
-                merc++;
-            token = strtok(NULL, ";");
-            l++;
+            condicao++;
+            if (shared_memory->mercados[merc].num_acoes < 3) {
+                if (l == 0 && shared_memory->mercados[merc].num_acoes == 0) {
+                    strcpy(shared_memory->mercados[merc].nome, line);
+                    shared_memory->num_mercados++;
+                } else if (l == 1) {
+                    strcpy(shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].nome, token);
+                } else if (l == 2) {
+                    shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].preco_inicial = (float)atof(token);
+                    shared_memory->mercados[merc].num_acoes++;
+                }
+                token = strtok(NULL, ";");
+                l++;
+            } else {
+                printf("Numero de acoes do mercado %s em excesso!\n", shared_memory->mercados[merc].nome);
+                exit(1);
+            }
         }
     }
     fclose(fich);
@@ -213,11 +223,10 @@ void terminar(int shm_id, SM *shared_memory) {
     shmctl(shm_id, IPC_RMID, NULL);
 }
 
-
-void add_cpid(int cliente, SM *shared_memory){
-    for(int i = 0; i<5; i++){
-        if (shared_memory->atuais[i].ocupado==false){
-            shared_memory->atuais[i].ocupado==true;
+void add_cpid(int cliente, SM *shared_memory) {
+    for (int i = 0; i < 5; i++) {
+        if (shared_memory->atuais[i].ocupado == false) {
+            shared_memory->atuais[i].ocupado == true;
             shared_memory->atuais[i].c_pid = cliente;
             shared_memory->clientes_atuais++;
             break;
@@ -225,9 +234,9 @@ void add_cpid(int cliente, SM *shared_memory){
     }
 }
 
-void remove_cpid(int cliente, SM *shared_memory){
-    for(int i = 0; i<5; i++){
-        if (cliente == shared_memory->atuais[i].ocupado){
+void remove_cpid(int cliente, SM *shared_memory) {
+    for (int i = 0; i < 5; i++) {
+        if (cliente == shared_memory->atuais[i].ocupado) {
             shared_memory->atuais[i].ocupado = false;
             shared_memory->clientes_atuais--;
             break;
