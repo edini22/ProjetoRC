@@ -204,14 +204,14 @@ int main(int argc, char **argv) {
         if (!strcmp(buffer, "ADD_USER")) { // ------------------------------------------
             printf("Entrou dentro do add user\n");
 
-            if (count < 5 || count > 6) {
+            if (count < 4 || count > 6) {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Numero de parametros errado. Clique enter para continuar\n");
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
                 printf("%s", buffer);
 
             } else {
-
+                    
                 char *toke = strtok(buffer3, " ");
                 for (int n = 0; n < 2; n++) {
                     printf("%s\n", toke);
@@ -263,7 +263,7 @@ int main(int argc, char **argv) {
                                             }
                                         }
                                     }
-                                } else if ((n == 4 && count == 5) || (n == 5 && count == 6)) {
+                                } else if ((n == 3 || count == 4) || (n == 4 && count == 5) || (n == 5 && count == 6)) {
                                     shared_memory->users[i].user.saldo_inicial = (float)atof(tok);
                                     shared_memory->users[i].ocupado = true;
                                     shared_memory->num_utilizadores++;
