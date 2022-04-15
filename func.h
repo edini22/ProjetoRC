@@ -24,20 +24,20 @@
 #define BUF_SIZE 1024
 
 typedef struct {
-    char nome[50];
+    char nome[500];
     float preco_inicial;
 } acao;
 
 typedef struct {
-    char nome[50];
+    char nome[500];
     acao acoes[3];
     int num_acoes;
 } mercado;
 
 // fifo
 typedef struct {
-    char nome[50];
-    char password[50];
+    char nome[500];
+    char password[500];
     float saldo_inicial;
     mercado mercados[2];
     int num_mercados;
@@ -56,12 +56,12 @@ typedef struct{
 //------
 
 typedef struct {
-    char admin[2][30]; // [0]AdminName [1]AdminPassword
+    char admin[2][500]; // [0]AdminName [1]AdminPassword
     int num_utilizadores;
     utilizadores users[10];
     mercado mercados[2];
     int num_mercados;
-    clock_t refresh_time;
+    int refresh_time;
 
     int clientes_atuais; // numero de clientes a acessar o servidor ao mesmo tempo
 
