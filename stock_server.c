@@ -388,17 +388,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    // int status;
-    // wait(&status);
-
-    // wait(&status);
-    // if (WEXITSTATUS(status) == 1)
-    //     kill(shared_memory->childs_pid[1], SIGKILL);
-    // else
-    //     kill(shared_memory->childs_pid[0], SIGKILL);
-
-    // close(shared_memory->clients_fd[0]);
-    // close(shared_memory->clients_fd[1]);
 
     terminar(shm_id, shared_memory);
 
