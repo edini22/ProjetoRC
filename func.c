@@ -209,6 +209,7 @@ int login_admin(int s, SM *shared_memory) {
     } else {
         snprintf(buffer, BUF_SIZE, "\nLogin (admin) efetuado com sucesso!\nClique enter para continuar");
         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
+        printf("Login (admin) efetuado com sucesso!\n");
         return 1;
     }
 }
