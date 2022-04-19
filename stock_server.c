@@ -7,7 +7,6 @@
 #include "func.h"
 
 int shm_id;
-SM *shared_memory;
 
 int main(int argc, char **argv) {
     // Variaveis TCP
@@ -79,7 +78,7 @@ int main(int argc, char **argv) {
         shared_memory->users[i].ocupado = false;
     }
 
-    config(path, shared_memory);
+    config(path);
 
     sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_MENU");
@@ -130,19 +129,19 @@ int main(int argc, char **argv) {
 
             pid_t cpid = fork();
             if (cpid == 0) {
-                if (login(client, shared_memory) == -1) {
+                if (login(client) == -1) {
                     close(fd);
                     close(client);
                     exit(0);
                 } else {
                     // TODO: coisas que o user pode fazer
-                    add_cpid(client, shared_memory);
+                    add_cpid(client);
 
                     printf("Cliente %d logado\n", shared_memory->clientes_atuais);
 
                     int sair = 0;
                     if (sair) {
-                        remove_cpid(client, shared_memory);
+                        remove_cpid(client);
                         close(fd);
                         close(client);
                         exit(0);
@@ -160,7 +159,7 @@ int main(int argc, char **argv) {
 
     // UDP =================================================================================
     char buffer[BUF_SIZE];
-    while (login_admin(s, shared_memory) == -1)
+    while (login_admin(s) == -1)
         ;
 
     struct sockaddr_in admin_outra;
@@ -401,7 +400,7 @@ int main(int argc, char **argv) {
             snprintf(buffer, BUF_SIZE, "O admin deslogado!\n");
             sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
             printf("%s", buffer);
-            while (login_admin(s, shared_memory) == -1)
+            while (login_admin(s) == -1)
                 ;
 
         } else if (!strcmp(buffer, "QUIT_SERVER")) { // ------------------------------------------
@@ -418,7 +417,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    terminar(shm_id, shared_memory);
+    terminar(shm_id);
 
     // while (wait(NULL) != 1 || errno != ECHILD) {
     //     printf("wainted for a child to finish\n");

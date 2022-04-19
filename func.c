@@ -6,7 +6,7 @@ void erro(char *msg) {
 }
 
 // funcao que le o ficheiro
-void config(char *path, SM *shared_memory) {
+void config(char *path) {
     FILE *fich = fopen(path, "r");
     assert(fich);
 
@@ -87,7 +87,7 @@ void config(char *path, SM *shared_memory) {
     fclose(fich);
 }
 
-int login(int fd, SM *shared_memory) {
+int login(int fd) {
     char buffer[BUF_SIZE];
     memset(buffer, 0, BUF_SIZE);
 
@@ -154,7 +154,7 @@ int login(int fd, SM *shared_memory) {
     }
 }
 
-int login_admin(int s, SM *shared_memory) {
+int login_admin(int s) {
     struct sockaddr_in admin_outra;
     char buffer[BUF_SIZE];
     memset(buffer, 0, BUF_SIZE);
@@ -214,7 +214,7 @@ int login_admin(int s, SM *shared_memory) {
     }
 }
 
-void terminar(int shm_id, SM *shared_memory) {
+void terminar(int shm_id) {
 
     sem_close(shared_memory->mutex_compras);
     // sem_close(shared_memory->mutex_menu);
@@ -224,7 +224,7 @@ void terminar(int shm_id, SM *shared_memory) {
     shmctl(shm_id, IPC_RMID, NULL);
 }
 
-void add_cpid(int cliente, SM *shared_memory) {
+void add_cpid(int cliente) {
     for (int i = 0; i < 5; i++) {
         if (shared_memory->atuais[i].ocupado == false) {
             shared_memory->atuais[i].ocupado == true;
@@ -235,7 +235,7 @@ void add_cpid(int cliente, SM *shared_memory) {
     }
 }
 
-void remove_cpid(int cliente, SM *shared_memory) {
+void remove_cpid(int cliente) {
     for (int i = 0; i < 5; i++) {
         if (cliente == shared_memory->atuais[i].ocupado) {
             shared_memory->atuais[i].ocupado = false;

@@ -72,18 +72,20 @@ typedef struct {
 
 } SM;
 
+SM *shared_memory;
+
 void erro(char *msg);
 
-int login(int fd, SM *shared_memory);
+int login(int fd);
 
-int login_admin(int s, SM *shared_memory);
+int login_admin(int s);
 
-void config(char *path, SM *shared_memory);
+void config(char *path);
 
-void terminar(int shm_id, SM *shared_memory);
+void terminar(int shm_id);
 
-void add_cpid(int cliente, SM *shared_memory);
+void add_cpid(int cliente);
 
-void remove_cpid(int cliente, SM *shared_memory);
+void remove_cpid(int cliente);
 
 #endif
