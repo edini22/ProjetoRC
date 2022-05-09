@@ -34,12 +34,25 @@ typedef struct {
     int num_acoes;
 } mercado;
 
+typedef struct {
+    char nome[500];
+    float preco_inicial;
+    int num_acoes;
+} acao_user;
+
+typedef struct {
+    char nome[500];
+    acao_user acoes[3];
+    int num_acoes;
+    int num_acoes_compradas;
+} mercadosUser;
+
 // fifo
 typedef struct {
     char nome[500];
     char password[500];
     float saldo_inicial;
-    mercado mercados[2];
+    mercadosUser mercados[2];
     int num_mercados;
 } utilizador;
 
@@ -48,10 +61,10 @@ typedef struct {
     bool ocupado;
 } utilizadores;
 
-typedef struct{
+typedef struct {
     pid_t c_pid;
     bool ocupado;
-}processo;
+} processo;
 
 //------
 
