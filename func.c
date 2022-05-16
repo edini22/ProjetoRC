@@ -97,14 +97,14 @@ int login(int fd) {
     }
 
     // Read username
-    snprintf(buffer, BUF_SIZE, "Login:\nUsername: ");
+    snprintf(buffer, BUF_SIZE, "Login\nUsername: ");
     write(fd, buffer, BUF_SIZE);
     fflush(stdout);
     memset(buffer, 0, BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
 
     // Verify user
-    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    // buffer[strlen(buffer) - 1] = '\0'; // Netcat
     int a;
     int i;
     int existe = 0;
@@ -125,7 +125,7 @@ int login(int fd) {
     write(fd, buffer, BUF_SIZE);
     memset(buffer, 0, BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
-    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    // buffer[strlen(buffer) - 1] = '\0'; // Netcat
 
     // Verify password
     int password_correta = 0;
@@ -162,13 +162,12 @@ int login_admin(int s) {
     int recv_len, send_len;
 
     // O admin comeca por enviar o username
-
     memset(buffer, 0, BUF_SIZE);
     if (recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen) == -1)
         erro("funcao recvfrom");
 
     // Verify user
-    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    // buffer[strlen(buffer) + 1] = '\0'; // Netcat
     int i;
     int a;
     int existe = 0;
@@ -184,7 +183,7 @@ int login_admin(int s) {
     sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
     memset(buffer, 0, BUF_SIZE);
     recv_len = recvfrom(s, buffer, BUF_SIZE, 0, (struct sockaddr *)&admin_outra, (socklen_t *)&slen);
-    buffer[strlen(buffer) - 1] = '\0'; // FIXME: tirar esta linha quando deixarmos de usar o nc
+    // buffer[strlen(buffer) + 1] = '\0'; // Netcat
 
     // Verify password
     int password_correta = 0;

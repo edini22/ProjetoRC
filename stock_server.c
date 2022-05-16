@@ -1,4 +1,5 @@
 // stock_server {PORTO_BOLSA} {PORTO_CONFIG} {ficheiro configuração}
+// ./stock_server 9000 9001 config_file.txt
 // Server<->Cliente TCP
 // Server<->Consola_Admin UDP
 // TCP - nc -v localhost 9000
@@ -125,11 +126,12 @@ int main(int argc, char **argv) {
                 ;
             // wait for new connection TCP
             client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
-            printf("Client connected...\n");
+            printf("Client trying to connect...\n");
 
             pid_t cpid = fork();
             if (cpid == 0) {
                 if (login(client) == -1) {
+                    printf("Wrong Username or password\n");
                     close(fd);
                     close(client);
                     exit(0);
@@ -138,6 +140,8 @@ int main(int argc, char **argv) {
                     add_cpid(client);
 
                     printf("Cliente %d logado\n", shared_memory->clientes_atuais);
+
+                    sleep(2);
 
                     int sair = 0;
                     if (sair) {
