@@ -79,7 +79,12 @@ int main(int argc, char **argv) {
         shared_memory->users[i].ocupado = false;
     }
 
-    config(path);
+    // Ler e verificar se o config_file esta correto
+    if(config(path) == -1){
+        printf("A terminar programa.\n");
+        terminar(shm_id);
+        exit(0);
+    }
 
     sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_MENU");
@@ -136,8 +141,9 @@ int main(int argc, char **argv) {
                     close(client);
                     exit(0);
                 } else {
-                    // TODO: coisas que o user pode fazer
+
                     add_cpid(client);
+                    // TODO: coisas que o user pode fazer
 
                     printf("Cliente %d logado\n", shared_memory->clientes_atuais);
 
@@ -187,7 +193,7 @@ int main(int argc, char **argv) {
         int condicao = 0;
         // Separar os argumentos dos comandos
         if (strlen(buffer) > 1)
-            buffer[strlen(buffer) - 1] = '\0';
+            buffer[strlen(buffer) - 1] = '\0'; // FIXME: Netcat
         int count = 0;
         char buffer2[BUF_SIZE];
         strcpy(buffer2, buffer);

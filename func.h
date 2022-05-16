@@ -24,7 +24,7 @@
 #define BUF_SIZE 1024
 
 typedef struct {
-    char nome[500];
+    char nome[500];  // QUESTION: qual e a diferenca entre este....
     float preco_inicial;
 } acao;
 
@@ -35,7 +35,7 @@ typedef struct {
 } mercado;
 
 typedef struct {
-    char nome[500];
+    char nome[500];  // QUESTION: ... e este?
     float preco_inicial;
     int num_acoes;
 } acao_user;
@@ -93,7 +93,7 @@ int login(int fd);
 
 int login_admin(int s);
 
-void config(char *path);
+int config(char *path);
 
 void terminar(int shm_id);
 

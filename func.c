@@ -6,12 +6,13 @@ void erro(char *msg) {
 }
 
 // funcao que le o ficheiro
-void config(char *path) {
+int config(char *path) {
     FILE *fich = fopen(path, "r");
     assert(fich);
 
     char line[200];
 
+    // Administrador
     fscanf(fich, "%s", line);
     char *token = strtok(line, "/");
     int i = 0;
@@ -19,35 +20,79 @@ void config(char *path) {
         strcpy(shared_memory->admin[i++], token);
         token = strtok(NULL, "/");
     }
+
+    // Utilizadores
     fscanf(fich, "%s", line);
-    // guardar utilizadores
     shared_memory->num_utilizadores = atoi(line);
     if (shared_memory->num_utilizadores > 5) {
-        printf("Demasiados users inseridos no ficheiro de configuracao, maximo de 5");
-        exit(1);
+        printf("Demasiados users inseridos no ficheiro de configuracao (maximo de 5)");
+        return -1;
     }
+
     int num = 0;
     while (num < shared_memory->num_utilizadores) {
+
         fscanf(fich, "%s", line);
         char *token = strtok(line, ";");
-        i = 0;
-        while (token != NULL) {
-            if (i == 0) {
-                shared_memory->users[num].user.num_mercados = 0;
-                strcpy(shared_memory->users[num].user.nome, token);
-                i++;
-            }
 
-            else if (i == 1) {
-                strcpy(shared_memory->users[num].user.password, token);
-                i++;
-            } else if (i == 2) {
-                char *pEnd;
-                shared_memory->users[num].ocupado = true;
-                shared_memory->users[num++].user.saldo_inicial = strtof(token, &pEnd);
-            }
+        // Verificar se estao o numero correto de parametros no ficheiro
+        int count = 0;
+        while (token != NULL) {
+            count++;
             token = strtok(NULL, ";");
         }
+
+        printf("\n");
+        if (count < 4 || count > 5) {
+            printf("Numero de argumentos errados na linha %d do ficheiro de configuracao.\n", num + 3);
+            return -1;
+        }
+
+        token = strtok(line, ";");
+        if(count == 4){ // O user so tem 1 mercado
+            i = 0;
+            while (token != NULL) {
+                if (i == 0) {
+                    shared_memory->users[num].user.num_mercados = 0;
+                    strcpy(shared_memory->users[num].user.nome, token);
+                }
+
+                else if (i == 1) {
+                    strcpy(shared_memory->users[num].user.password, token);
+                } else if (i == 2) {
+                    strcpy(shared_memory->users[num].user.mercados[0].nome, token);
+                } else if (i == 3){
+                    char *pEnd;
+                    shared_memory->users[num].ocupado = true;
+                    shared_memory->users[num].user.saldo_inicial = strtof(token, &pEnd);
+                }
+                i++;
+                token = strtok(NULL, ";");
+            }
+
+        } else{ // O user tem 2 mercados
+            i = 0;
+            while (token != NULL) {
+                if (i == 0) {
+                    shared_memory->users[num].user.num_mercados = 0;
+                    strcpy(shared_memory->users[num].user.nome, token);
+                }
+                else if (i == 1) {
+                    strcpy(shared_memory->users[num].user.password, token);
+                } else if (i == 2) {
+                    strcpy(shared_memory->users[num].user.mercados[0].nome, token);
+                } else if (i == 3){
+                    strcpy(shared_memory->users[num].user.mercados[1].nome, token);
+                } else if (i == 4){
+                    char *pEnd;
+                    shared_memory->users[num].ocupado = true;
+                    shared_memory->users[num].user.saldo_inicial = strtof(token, &pEnd);
+                }
+                i++;
+                token = strtok(NULL, ";");
+            }
+        }
+        num++;
     }
 
     // guardar os mercados
@@ -79,12 +124,14 @@ void config(char *path) {
                 token = strtok(NULL, ";");
                 l++;
             } else {
-                printf("Numero de acoes do mercado %s em excesso!\n", shared_memory->mercados[merc].nome);
-                exit(1);
+                printf("Numero de acoes do mercado %s em excesso no ficheiro de configuracao!\n", shared_memory->mercados[merc].nome);
+                return -1;
             }
         }
     }
     fclose(fich);
+
+    return 0;
 }
 
 int login(int fd) {
