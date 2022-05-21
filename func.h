@@ -35,24 +35,23 @@ typedef struct {
     int num_acoes;
 } mercado;
 
-// typedef struct {
-//     char nome[500];  // QUESTION: ... e este?
-//     float preco_inicial;
-//     int n_acoes_;
-// } acao_user;
+typedef struct {
+    char nome[500];  // QUESTION: qual e a diferenca entre este....
+    int n_acoes;
+} acoes;
 
-// typedef struct {
-//     char nome[500];
-//     acao_user acoes[3];
-//     int num_acoes;
-//     int num_acoes_compradas;
-// } mercadosUser;
+typedef struct {
+    char nome[500];
+    acoes acao[3];
+    int num_acoes;
+    int n_acoes_comp_mercado;
+} mercadosUser;
 
 typedef struct {
     char nome[500];
     char password[500];
     float saldo;
-    mercado mercados[2];
+    mercadosUser mercados[2];
     int num_mercados;
     int num_acoes_compradas;
     bool ocupado;

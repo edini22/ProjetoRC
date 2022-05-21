@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
 
     char *ponteiro;
     char endereco[50];
+    char buffer[BUF_SIZE];
+
     strcpy(endereco, argv[1]);
     int PORTO_BOLSA = (int)strtol(argv[2], &ponteiro, 10);
 
@@ -88,24 +90,21 @@ int main(int argc, char **argv) {
         erro("Connect");
 
     if (login(fd) == -1) {
+        close(fd);
         exit(0);
     } else {
         // Receber do servidor os mercados que pode acede
-        char buffer[BUF_SIZE];
+        memset(buffer, 0, BUF_SIZE);
         read(fd, buffer, BUF_SIZE);
         printf("%s", buffer);
 
         // Mostrar Menu
         int escolha = 0;
-        printf("--MENU--");
-        printf("--1 Subscrever as cotacoes de um mercado");
-        printf("--2 Comprar uma acao");
-        printf("--3 Vender uma acao");
-        printf("--4 Ligar/Desligar feed de atualizacoes do mercado");
-        printf("--5 Ver carteira de acoes e o saldo");
-        printf("--6 Sair");
-
         while (1) {
+            printf("--MENU--\n--1 Subscrever as cotacoes de um mercado\n--2 Comprar uma acao\n--3 Vender uma acao\n--4 Ligar/Desligar feed de atualizacoes do mercado\n--5 Ver carteira de acoes e o saldo\n--6 Sair\n");
+
+            scanf("%d", &escolha);
+
             switch (escolha) {
             case 1:
                 write(fd, "escolha1", 10);
@@ -117,7 +116,6 @@ int main(int argc, char **argv) {
                 break;
             case 3:
                 write(fd, "escolha3", 10);
-                
 
                 break;
             case 4:
@@ -132,7 +130,8 @@ int main(int argc, char **argv) {
                 break;
             case 6:
                 write(fd, "escolha6", 10);
-
+                close(fd);
+                exit(0);
                 break;
             }
         }

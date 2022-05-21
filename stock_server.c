@@ -97,7 +97,6 @@ int main(int argc, char **argv) {
 
     printf("A iniciar o servidor...\n");
 
-
     // REFRESH =============================================================================
     pid_t pid_refresh;
     if ((pid_refresh = fork()) == 0) {
@@ -170,7 +169,7 @@ int main(int argc, char **argv) {
                         printf("%s", mercados);
                         for (int i = 0; i < n_merc; i++) {
                             memset(aux, 0, 200);
-                            printf("\t%s\n", shared_memory->users[id].mercados[i].nome);
+                            printf("\t%s / n_acoes: %d\n", shared_memory->users[id].mercados[i].nome,shared_memory->users[id].mercados[i].num_acoes);
                             snprintf(aux, BUF_SIZE, "\t%s\n", shared_memory->users[id].mercados[i].nome);
                             strcat(mercados, aux);
                         }
@@ -183,13 +182,11 @@ int main(int argc, char **argv) {
                     // Escolhas feitas pelo user
                     process_client(client_fd, id);
 
-                    int sair = 0;
-                    if (sair) {
-                        remove_cpid(client_fd);
-                        close(fd);
-                        close(client_fd);
-                        exit(0);
-                    }
+                    remove_cpid(client_fd);
+                    close(fd);
+                    close(client_fd);
+                     printf("Cliente n%d deslogado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
+                    exit(0);
                 }
             }
         }
