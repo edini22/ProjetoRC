@@ -26,6 +26,7 @@
 typedef struct {
     char nome[500];  // QUESTION: qual e a diferenca entre este....
     float preco_inicial;
+    int n_acoes;
 } acao;
 
 typedef struct {
@@ -34,30 +35,26 @@ typedef struct {
     int num_acoes;
 } mercado;
 
-typedef struct {
-    char nome[500];  // QUESTION: ... e este?
-    float preco_inicial;
-    int num_acoes;
-} acao_user;
+// typedef struct {
+//     char nome[500];  // QUESTION: ... e este?
+//     float preco_inicial;
+//     int n_acoes_;
+// } acao_user;
 
-typedef struct {
-    char nome[500];
-    acao_user acoes[3];
-    int num_acoes;
-    int num_acoes_compradas;
-} mercadosUser;
+// typedef struct {
+//     char nome[500];
+//     acao_user acoes[3];
+//     int num_acoes;
+//     int num_acoes_compradas;
+// } mercadosUser;
 
-// fifo
 typedef struct {
     char nome[500];
     char password[500];
-    float saldo_inicial;
-    mercadosUser mercados[2];
+    float saldo;
+    mercado mercados[2];
     int num_mercados;
-} utilizador;
-
-typedef struct {
-    utilizador user;
+    int num_acoes_compradas;
     bool ocupado;
 } utilizadores;
 
@@ -78,7 +75,7 @@ typedef struct {
 
     int clientes_atuais; // numero de clientes a acessar o servidor ao mesmo tempo
 
-    sem_t *mutex_compras;
+    sem_t *sem_compras;
     sem_t *mutex_menu;
     // sem_t *mutex_login;
     processo atuais[5];
@@ -89,9 +86,11 @@ SM *shared_memory;
 
 void erro(char *msg);
 
-int login(int fd);
+int login(int fd, char *username);
 
 int login_admin(int s);
+
+void process_client(int client_fd, int id);
 
 int config(char *path);
 

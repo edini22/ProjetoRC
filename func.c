@@ -29,72 +29,6 @@ int config(char *path) {
         return -1;
     }
 
-    int num = 0;
-    while (num < shared_memory->num_utilizadores) {
-
-        fscanf(fich, "%s", line);
-        char *token = strtok(line, ";");
-
-        // Verificar se estao o numero correto de parametros no ficheiro
-        int count = 0;
-        while (token != NULL) {
-            count++;
-            token = strtok(NULL, ";");
-        }
-
-        printf("\n");
-        if (count < 4 || count > 5) {
-            printf("Numero de argumentos errados na linha %d do ficheiro de configuracao.\n", num + 3);
-            return -1;
-        }
-
-        token = strtok(line, ";");
-        if(count == 4){ // O user so tem 1 mercado
-            i = 0;
-            while (token != NULL) {
-                if (i == 0) {
-                    shared_memory->users[num].user.num_mercados = 0;
-                    strcpy(shared_memory->users[num].user.nome, token);
-                }
-
-                else if (i == 1) {
-                    strcpy(shared_memory->users[num].user.password, token);
-                } else if (i == 2) {
-                    strcpy(shared_memory->users[num].user.mercados[0].nome, token);
-                } else if (i == 3){
-                    char *pEnd;
-                    shared_memory->users[num].ocupado = true;
-                    shared_memory->users[num].user.saldo_inicial = strtof(token, &pEnd);
-                }
-                i++;
-                token = strtok(NULL, ";");
-            }
-
-        } else{ // O user tem 2 mercados
-            i = 0;
-            while (token != NULL) {
-                if (i == 0) {
-                    shared_memory->users[num].user.num_mercados = 0;
-                    strcpy(shared_memory->users[num].user.nome, token);
-                }
-                else if (i == 1) {
-                    strcpy(shared_memory->users[num].user.password, token);
-                } else if (i == 2) {
-                    strcpy(shared_memory->users[num].user.mercados[0].nome, token);
-                } else if (i == 3){
-                    strcpy(shared_memory->users[num].user.mercados[1].nome, token);
-                } else if (i == 4){
-                    char *pEnd;
-                    shared_memory->users[num].ocupado = true;
-                    shared_memory->users[num].user.saldo_inicial = strtof(token, &pEnd);
-                }
-                i++;
-                token = strtok(NULL, ";");
-            }
-        }
-        num++;
-    }
-
     // guardar os mercados
     int merc = 0;
     int condicao = 0;
@@ -102,6 +36,7 @@ int config(char *path) {
         char *token = strtok(line, ";");
         int l = 0;
         while (token != NULL) {
+            srand(time(NULL));
             if (condicao != 0 && l == 0) {
                 char mercado[BUF_SIZE];
                 strcpy(mercado, shared_memory->mercados[0].nome);
@@ -120,6 +55,8 @@ int config(char *path) {
                 } else if (l == 2) {
                     shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].preco_inicial = (float)atof(token);
                     shared_memory->mercados[merc].num_acoes++;
+                    int n_acoes_inicial = rand() % 100 + 10;
+                    shared_memory->mercados[merc].acoes[shared_memory->mercados[merc].num_acoes].n_acoes = n_acoes_inicial;
                 }
                 token = strtok(NULL, ";");
                 l++;
@@ -129,12 +66,104 @@ int config(char *path) {
             }
         }
     }
+
+    int num = 0;
+    while (num < shared_memory->num_utilizadores) {
+
+        fscanf(fich, "%s", line);
+        char linha[BUF_SIZE];
+        strcpy(linha, line);
+        char *token = strtok(line, ";");
+
+        // Verificar se estao o numero correto de parametros no ficheiro
+        int count = 0;
+        while (token != NULL) {
+            count++;
+            token = strtok(NULL, ";");
+        }
+
+        if (count < 4 || count > 5) {
+            printf("\nNumero de argumentos errados na linha %d do ficheiro de configuracao.\n", num + 3);
+            return -1;
+        }
+
+        // printf("linha : %s\n", line);
+
+        char *token2 = strtok(linha, ";");
+        if (count == 4) { // O user so tem 1 mercado
+            i = 0;
+            while (token2 != NULL) {
+                if (i == 0) {
+                    shared_memory->users[num].num_mercados = 1;
+                    shared_memory->users[num].num_acoes_compradas = 0;
+                    strcpy(shared_memory->users[num].nome, token2);
+                } else if (i == 1) {
+                    strcpy(shared_memory->users[num].password, token2);
+                } else if (i == 2) {
+                    for (int j = 0; j < shared_memory->num_mercados; j++) {
+                        char aux[BUF_SIZE];
+                        strcpy(aux, shared_memory->mercados[j].nome);
+                        if (!strcmp(aux, token2)) {
+                            strcpy(shared_memory->users[num].mercados[0].nome, token2);
+                            shared_memory->users[num].num_mercados++;
+                            break;
+                        }
+                    }
+                } else if (i == 3) {
+                    char *pEnd;
+                    shared_memory->users[num].ocupado = true;
+                    shared_memory->users[num].saldo = strtof(token2, &pEnd);
+                }
+                i++;
+                token2 = strtok(NULL, ";");
+            }
+
+        } else { // O user tem 2 mercados
+            i = 0;
+            while (token2 != NULL) {
+                if (i == 0) {
+                    shared_memory->users[num].num_mercados = 2;
+                    strcpy(shared_memory->users[num].nome, token2);
+                } else if (i == 1) {
+                    strcpy(shared_memory->users[num].password, token2);
+                } else if (i == 2) {
+                    for (int j = 0; j < shared_memory->num_mercados; j++) {
+                        char aux[BUF_SIZE];
+                        strcpy(aux, shared_memory->mercados[j].nome);
+                        if (!strcmp(aux, token2)) {
+                            strcpy(shared_memory->users[num].mercados[0].nome, token2);
+                            shared_memory->users[num].num_mercados++;
+                            break;
+                        }
+                    }
+                } else if (i == 3) {
+                    for (int j = 0; j < shared_memory->num_mercados; j++) {
+                        char aux[BUF_SIZE];
+                        strcpy(aux, shared_memory->mercados[j].nome);
+                        if (!strcmp(aux, token2)) {
+                            strcpy(shared_memory->users[num].mercados[1].nome, token2);
+                            shared_memory->users[num].num_mercados++;
+                            break;
+                        }
+                    }
+                } else if (i == 4) {
+                    char *pEnd;
+                    shared_memory->users[num].ocupado = true;
+                    shared_memory->users[num].saldo = strtof(token2, &pEnd);
+                }
+                i++;
+                token2 = strtok(NULL, ";");
+            }
+        }
+        num++;
+    }
+
     fclose(fich);
 
     return 0;
 }
 
-int login(int fd) {
+int login(int fd, char *username) {
     char buffer[BUF_SIZE];
     memset(buffer, 0, BUF_SIZE);
 
@@ -149,6 +178,7 @@ int login(int fd) {
     fflush(stdout);
     memset(buffer, 0, BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
+    // strcpy(username, buffer);
 
     // Verify user
     // buffer[strlen(buffer) - 1] = '\0'; // Netcat
@@ -158,7 +188,7 @@ int login(int fd) {
     for (i = 0; i < 10; i++) {
         char aux[BUF_SIZE];
         if (shared_memory->users[i].ocupado == true) {
-            strcpy(aux, shared_memory->users[i].user.nome);
+            strcpy(aux, shared_memory->users[i].nome);
             if ((a = strcmp(buffer, aux)) == 0) {
                 existe = 1;
                 break;
@@ -178,7 +208,7 @@ int login(int fd) {
     int password_correta = 0;
     if (existe) {
         char aux[50];
-        strcpy(aux, shared_memory->users[i].user.password);
+        strcpy(aux, shared_memory->users[i].password);
         if ((a = strcmp(buffer, aux)) == 0) {
             password_correta = 1;
         }
@@ -260,9 +290,48 @@ int login_admin(int s) {
     }
 }
 
+void process_client(int client_fd, int id) {
+    char buffer[BUF_SIZE];
+
+    while (1) {
+        // Verificar a escolha do cliente
+        memset(buffer, 0, BUF_SIZE);
+        read(client_fd, buffer, BUF_SIZE);
+
+        if (!strcmp(buffer, "escolha1")) {
+
+        } else if (!strcmp(buffer, "escolha2")) {
+
+        } else if (!strcmp(buffer, "escolha3")) {
+
+        } else if (!strcmp(buffer, "escolha4")) {
+
+        } else if (!strcmp(buffer, "escolha5")) {
+            char carteira[BUF_SIZE*2];
+            char aux[1000];
+            snprintf(carteira, BUF_SIZE*2, "Informacoes da carteira:\nSaldo disponivel: %f", shared_memory->users[id].saldo);
+            for (int i = 0; i < shared_memory->users[id].num_acoes_compradas; i++) {
+                for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
+                    if (1) { // TODO: verificar se a existe acao naquela posicao do array
+                        memset(aux, 0, 1000);
+                        snprintf(aux, 1000, "Nome da acao: %s; Preco: %f\n", shared_memory->users[id].mercados[i].acoes[j].nome, shared_memory->users[id].mercados[i].acoes[j].preco_inicial);
+                        strcat(carteira, aux);
+                    }
+                }
+            }
+            write(client_fd, carteira, BUF_SIZE*2);
+
+        } else if (!strcmp(buffer, "escolha6")) {
+            remove_cpid(client_fd);
+            close(client_fd);
+            exit(0);
+        }
+    }
+}
+
 void terminar(int shm_id) {
 
-    sem_close(shared_memory->mutex_compras);
+    sem_close(shared_memory->sem_compras);
     // sem_close(shared_memory->mutex_menu);
     sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_MENU");

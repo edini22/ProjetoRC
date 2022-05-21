@@ -1,7 +1,7 @@
 admin/password
 2
-User1;pass1;stock_bvl_1;1000
-User2;pass2;stock_bvl_2;stock_nyse_3;1500
+User1;pass1;bvl;1000
+User2;pass2;bvl;nyse;1500
 bvl;stock_bvl_1;10
 bvl;stock_bvl_2;10
 bvl;stock_bvl_3;10

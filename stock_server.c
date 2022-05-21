@@ -11,7 +11,7 @@ int shm_id;
 
 int main(int argc, char **argv) {
     // Variaveis TCP
-    int fd, client;
+    int fd, client_fd;
     struct sockaddr_in addr, client_addr;
     int client_addr_size;
 
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     }
 
     // Ler e verificar se o config_file esta correto
-    if(config(path) == -1){
+    if (config(path) == -1) {
         printf("A terminar programa.\n");
         terminar(shm_id);
         exit(0);
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     sem_unlink("MUTEX_COMPRAS");
     // sem_unlink("MUTEX_MENU");
     // sem_unlink("MUTEX_LOGIN");
-    shared_memory->mutex_compras = sem_open("MUTEX_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
+    shared_memory->sem_compras = sem_open("MUTEX_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
     // shared_memory->mutex_menu = sem_open("MUTEX_MENU", O_CREAT | O_EXCL, 0700, 1);
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // int i = 0;
@@ -97,17 +97,17 @@ int main(int argc, char **argv) {
 
     printf("A iniciar o servidor...\n");
 
-    // REFRESH
+
+    // REFRESH =============================================================================
     pid_t pid_refresh;
     if ((pid_refresh = fork()) == 0) {
         while (1) {
-            sem_wait(shared_memory->mutex_compras);
+            sem_wait(shared_memory->sem_compras);
             sleep(shared_memory->refresh_time);
             for (int m = 0; m < shared_memory->num_mercados; m++) {
                 for (int a = 0; a < shared_memory->mercados[m].num_acoes; a++) {
                     if (shared_memory->mercados[m].acoes[a].preco_inicial >= 0.02) {
-                        time_t t;
-                        srand((unsigned)time(&t));
+                        srand(time(NULL));
                         int r = rand() % 2;
                         if (r == 0)
                             shared_memory->mercados[m].acoes[a].preco_inicial -= 0.01;
@@ -116,9 +116,21 @@ int main(int argc, char **argv) {
                     } else {
                         shared_memory->mercados[m].acoes[a].preco_inicial += 0.01;
                     }
+                    if (shared_memory->mercados[m].acoes[a].n_acoes == 100) {
+                        shared_memory->mercados[m].acoes[a].n_acoes -= 10;
+                    } else if (shared_memory->mercados[m].acoes[a].n_acoes == 10) {
+                        shared_memory->mercados[m].acoes[a].n_acoes += 10;
+                    } else {
+                        srand(time(NULL));
+                        int r = rand() % 2;
+                        if (r == 0)
+                            shared_memory->mercados[m].acoes[a].n_acoes -= 10;
+                        else
+                            shared_memory->mercados[m].acoes[a].n_acoes += 10;
+                    }
                 }
             }
-            sem_post(shared_memory->mutex_compras);
+            sem_post(shared_memory->sem_compras);
         }
     }
 
@@ -130,30 +142,52 @@ int main(int argc, char **argv) {
             while (waitpid(-1, NULL, WNOHANG) > 0)
                 ;
             // wait for new connection TCP
-            client = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
+            client_fd = accept(fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_size);
             printf("Client trying to connect...\n");
 
             pid_t cpid = fork();
             if (cpid == 0) {
-                if (login(client) == -1) {
+                char *username;
+                int id = 0;
+                if ((id = login(client_fd, username)) == -1) {
                     printf("Wrong Username or password\n");
                     close(fd);
-                    close(client);
+                    close(client_fd);
                     exit(0);
                 } else {
 
-                    add_cpid(client);
-                    // TODO: coisas que o user pode fazer
+                    add_cpid(client_fd);
 
-                    printf("Cliente %d logado\n", shared_memory->clientes_atuais);
+                    printf("Cliente n%d logado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
 
-                    sleep(2);
+                    // Enviar ao cliente os mercados que pode aceder
+                    char mercados[BUF_SIZE];
+                    memset(mercados, 0, BUF_SIZE);
+                    int n_merc = shared_memory->users[id].num_mercados;
+                    if (n_merc != 0) {
+                        char aux[200];
+                        snprintf(mercados, BUF_SIZE, "Mercados disponiveis:\n");
+                        printf("%s", mercados);
+                        for (int i = 0; i < n_merc; i++) {
+                            memset(aux, 0, 200);
+                            printf("\t%s\n", shared_memory->users[id].mercados[i].nome);
+                            snprintf(aux, BUF_SIZE, "\t%s\n", shared_memory->users[id].mercados[i].nome);
+                            strcat(mercados, aux);
+                        }
+                        write(client_fd, mercados, BUF_SIZE);
+                    } else {
+                        snprintf(mercados, BUF_SIZE, "Nao tem acesso a nenhum mercado!!\n");
+                        write(client_fd, mercados, BUF_SIZE);
+                    }
+
+                    // Escolhas feitas pelo user
+                    process_client(client_fd, id);
 
                     int sair = 0;
                     if (sair) {
-                        remove_cpid(client);
+                        remove_cpid(client_fd);
                         close(fd);
-                        close(client);
+                        close(client_fd);
                         exit(0);
                     }
                 }
@@ -163,9 +197,9 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    printf("mercado1: %s\n", shared_memory->mercados[0].nome);
-    printf("mercado2: %s\n", shared_memory->mercados[1].nome);
-    printf("Num mercados: %d\n", shared_memory->num_mercados);
+    // printf("mercado1: %s\n", shared_memory->mercados[0].nome);
+    // printf("mercado2: %s\n", shared_memory->mercados[1].nome);
+    // printf("Num mercados: %d\n", shared_memory->num_mercados);
 
     // UDP =================================================================================
     char buffer[BUF_SIZE];
@@ -189,7 +223,7 @@ int main(int argc, char **argv) {
             erro("funcao recvfrom");
         }
 
-        //printf("Buffer: %s\n", buffer);
+        // printf("Buffer: %s\n", buffer);
         int condicao = 0;
         // Separar os argumentos dos comandos
         if (strlen(buffer) > 1)
@@ -201,14 +235,14 @@ int main(int argc, char **argv) {
         strcpy(buffer3, buffer);
         char *token = strtok(buffer, " ");
         while (token != NULL) {
-            //printf("%s\n", token);
+            // printf("%s\n", token);
             count++;
             token = strtok(NULL, " ");
         }
-        //printf("Count: %d\n", count);
+        // printf("Count: %d\n", count);
 
         if (!strcmp(buffer, "ADD_USER")) { // ------------------------------------------
-            //printf("Entrou dentro do add user\n");
+            // printf("Entrou dentro do add user\n");
 
             if (count < 4 || count > 6) {
                 memset(buffer, 0, BUF_SIZE);
@@ -220,13 +254,13 @@ int main(int argc, char **argv) {
                 int index = 0;
                 char *toke = strtok(buffer3, " ");
                 for (int n = 0; n < 2; n++) {
-                    //printf("%s\n", toke);
+                    // printf("%s\n", toke);
                     if (n == 1) {
                         for (int i = 0; i < 10; i++) {
                             if (shared_memory->users[i].ocupado == true) {
                                 char aux[500];
-                                strcpy(aux, shared_memory->users[i].user.nome);
-                                if (!strcmp(aux, toke)) { 
+                                strcpy(aux, shared_memory->users[i].nome);
+                                if (!strcmp(aux, toke)) {
                                     index = i;
                                     condicao++;
                                     break;
@@ -236,33 +270,34 @@ int main(int argc, char **argv) {
                     }
                     toke = strtok(NULL, " ");
                 }
-                //printf("\ncondiçao == %d\n", condicao);
+                // printf("\ncondiçao == %d\n", condicao);
                 if (condicao == 1) {
                     char *tok = strtok(buffer2, " ");
                     for (int n = 0; n < count; n++) {
                         if (n == 1) {
-                            shared_memory->users[index].user.num_mercados = 0;
+                            shared_memory->users[index].num_mercados = 0;
+                            shared_memory->users[index].num_acoes_compradas = 0;
                         } else if (n == 2) {
-                            strcpy(shared_memory->users[index].user.password, tok);
+                            strcpy(shared_memory->users[index].password, tok);
                         } else if ((n == 3 && count == 5) || (n == 3 && count == 6) || (n == 4 && count == 6)) {
                             if (shared_memory->num_mercados != 0) {
                                 for (int j = 0; j < shared_memory->num_mercados; j++) {
                                     char aux[BUF_SIZE];
                                     strcpy(aux, shared_memory->mercados[j].nome);
                                     if (!strcmp(aux, tok)) {
-                                        strcpy(shared_memory->users[index].user.mercados[shared_memory->users[index].user.num_mercados].nome, aux);
-                                        shared_memory->users[index].user.num_mercados++;
+                                        strcpy(shared_memory->users[index].mercados[shared_memory->users[index].num_mercados].nome, aux);
+                                        shared_memory->users[index].num_mercados++;
                                         break;
                                     }
                                 }
                             }
                         } else if ((n == 3 || count == 4) || (n == 4 && count == 5) || (n == 5 && count == 6)) {
-                            shared_memory->users[index].user.saldo_inicial = (float)atof(tok);
+                            shared_memory->users[index].saldo = (float)atof(tok);
                         }
                         tok = strtok(NULL, " ");
                     }
                     memset(buffer, 0, BUF_SIZE);
-                    snprintf(buffer, BUF_SIZE, "user %s atualizado! Clique enter para continuar\n", shared_memory->users[index].user.nome);
+                    snprintf(buffer, BUF_SIZE, "user %s atualizado! Clique enter para continuar\n", shared_memory->users[index].nome);
                     sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
 
                 } else {
@@ -273,31 +308,32 @@ int main(int argc, char **argv) {
                                 char *tok = strtok(buffer2, " ");
                                 for (int n = 0; n < count; n++) {
                                     if (n == 1) {
-                                        shared_memory->users[i].user.num_mercados = 0;
-                                        strcpy(shared_memory->users[i].user.nome, tok);
+                                        shared_memory->users[i].num_mercados = 0;
+                                        shared_memory->users[i].num_acoes_compradas = 0;
+                                        strcpy(shared_memory->users[i].nome, tok);
                                     } else if (n == 2) {
-                                        strcpy(shared_memory->users[i].user.password, tok);
+                                        strcpy(shared_memory->users[i].password, tok);
                                     } else if ((n == 3 && count == 5) || (n == 3 && count == 6) || (n == 4 && count == 6)) {
                                         if (shared_memory->num_mercados != 0) {
                                             for (int j = 0; j < shared_memory->num_mercados; j++) {
                                                 char aux[BUF_SIZE];
                                                 strcpy(aux, shared_memory->mercados[j].nome);
                                                 if (!strcmp(aux, tok)) {
-                                                    strcpy(shared_memory->users[i].user.mercados[shared_memory->users[i].user.num_mercados].nome, aux);
-                                                    shared_memory->users[i].user.num_mercados++;
+                                                    strcpy(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].nome, aux);
+                                                    shared_memory->users[i].num_mercados++;
                                                     break;
                                                 }
                                             }
                                         }
                                     } else if ((n == 3 || count == 4) || (n == 4 && count == 5) || (n == 5 && count == 6)) {
-                                        shared_memory->users[i].user.saldo_inicial = (float)atof(tok);
+                                        shared_memory->users[i].saldo = (float)atof(tok);
                                         shared_memory->users[i].ocupado = true;
                                         shared_memory->num_utilizadores++;
                                     }
                                     tok = strtok(NULL, " ");
                                 }
                                 memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "user %s adicionado! Clique enter para continuar\n", shared_memory->users[i].user.nome);
+                                snprintf(buffer, BUF_SIZE, "user %s adicionado! Clique enter para continuar\n", shared_memory->users[i].nome);
                                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
                                 break;
                             }
@@ -307,7 +343,7 @@ int main(int argc, char **argv) {
                         memset(buffer, 0, BUF_SIZE);
                         snprintf(buffer, BUF_SIZE, "Atingiu o numero maximo de utilizadores. Clique enter para continuar\n");
                         sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                        //printf("%s", buffer);
+                        // printf("%s", buffer);
                     }
                 }
             }
@@ -318,22 +354,22 @@ int main(int argc, char **argv) {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Nao existem utilizadores registados! Clique enter para continuar\n");
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                //printf("%s", buffer);
+                // printf("%s", buffer);
             } else if (count != 2) {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Numero de parametros errado! Clique enter para continuar\n");
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                //printf("%s", buffer);
+                // printf("%s", buffer);
             } else {
                 bool existe = false;
                 char *tok = strtok(buffer2, " ");
                 for (int n = 0; n < 2; n++) {
-                    //printf("%s\n", tok);
+                    // printf("%s\n", tok);
                     if (n == 1) {
                         for (int i = 0; i < 10; i++) {
                             if (shared_memory->users[i].ocupado == true) {
                                 char aux[500];
-                                strcpy(aux, shared_memory->users[i].user.nome);
+                                strcpy(aux, shared_memory->users[i].nome);
                                 if (!strcmp(aux, tok)) {
                                     existe = true;
                                     shared_memory->users[i].ocupado = false;
@@ -341,7 +377,7 @@ int main(int argc, char **argv) {
                                     memset(buffer, 0, BUF_SIZE);
                                     snprintf(buffer, BUF_SIZE, "user %s removido! Clique enter para continuar\n", aux);
                                     sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                                    //printf("%s", buffer);
+                                    // printf("%s", buffer);
                                     break;
                                 }
                             }
@@ -350,7 +386,7 @@ int main(int argc, char **argv) {
                             memset(buffer, 0, BUF_SIZE);
                             snprintf(buffer, BUF_SIZE, "Nao existe nenhum user com esse nome registado! Clique enter para continuar\n");
                             sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                            //printf("%s", buffer);
+                            // printf("%s", buffer);
                         }
                     }
                     tok = strtok(NULL, " ");
@@ -361,7 +397,7 @@ int main(int argc, char **argv) {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Nao existem utilizadores registados! Clique enter para continuar\n");
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                //printf("%s", buffer);
+                // printf("%s", buffer);
             } else {
                 char print[2048];
                 memset(print, 0, BUF_SIZE);
@@ -369,13 +405,13 @@ int main(int argc, char **argv) {
                     if (shared_memory->users[i].ocupado) {
                         char aux[1500];
                         memset(aux, 0, BUF_SIZE);
-                        snprintf(aux, 1500, "\nNome: %s Password: %s Saldo: %4.2f ", shared_memory->users[i].user.nome, shared_memory->users[i].user.password, shared_memory->users[i].user.saldo_inicial);
+                        snprintf(aux, 1500, "\nNome: %s Password: %s Saldo: %4.2f ", shared_memory->users[i].nome, shared_memory->users[i].password, shared_memory->users[i].saldo);
                         char aux2[BUF_SIZE];
-                        //printf("mercados = %d\n", shared_memory->users[i].user.num_mercados);
-                        if (shared_memory->users[i].user.num_mercados != 0) {
-                            for (int m = 0; m < shared_memory->users[i].user.num_mercados; m++) {
+                        // printf("mercados = %d\n", shared_memory->users[i].num_mercados);
+                        if (shared_memory->users[i].num_mercados != 0) {
+                            for (int m = 0; m < shared_memory->users[i].num_mercados; m++) {
                                 memset(aux2, 0, BUF_SIZE);
-                                snprintf(aux2, BUF_SIZE, " %s ", shared_memory->users[i].user.mercados[m].nome);
+                                snprintf(aux2, BUF_SIZE, " %s ", shared_memory->users[i].mercados[m].nome);
                                 strcat(aux, aux2);
                             }
                         }
@@ -398,7 +434,7 @@ int main(int argc, char **argv) {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Tempo do refresh alterado para %d! Clique enter para continuar\n", shared_memory->refresh_time);
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
-                //printf("%s", buffer);
+                // printf("%s", buffer);
             } else {
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Numero de parametros errado! Clique enter para continuar\n");
