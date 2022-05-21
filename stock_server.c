@@ -105,15 +105,15 @@ int main(int argc, char **argv) {
             sleep(shared_memory->refresh_time);
             for (int m = 0; m < shared_memory->num_mercados; m++) {
                 for (int a = 0; a < shared_memory->mercados[m].num_acoes; a++) {
-                    if (shared_memory->mercados[m].acoes[a].preco_inicial >= 0.02) {
+                    if (shared_memory->mercados[m].acoes[a].preco >= 0.02) {
                         srand(time(NULL));
                         int r = rand() % 2;
                         if (r == 0)
-                            shared_memory->mercados[m].acoes[a].preco_inicial -= 0.01;
+                            shared_memory->mercados[m].acoes[a].preco -= 0.01;
                         else
-                            shared_memory->mercados[m].acoes[a].preco_inicial += 0.01;
+                            shared_memory->mercados[m].acoes[a].preco += 0.01;
                     } else {
-                        shared_memory->mercados[m].acoes[a].preco_inicial += 0.01;
+                        shared_memory->mercados[m].acoes[a].preco += 0.01;
                     }
                     if (shared_memory->mercados[m].acoes[a].n_acoes == 100) {
                         shared_memory->mercados[m].acoes[a].n_acoes -= 10;

@@ -112,7 +112,9 @@ int main(int argc, char **argv) {
                 break;
             case 2:
                 write(fd, "escolha2", 10);
-
+                memset(buffer, 0, BUF_SIZE);
+                read(fd, buffer, BUF_SIZE);
+                printf("%s", buffer);
                 break;
             case 3:
                 write(fd, "escolha3", 10);
@@ -125,6 +127,7 @@ int main(int argc, char **argv) {
             case 5:
                 // Mostrar informcacoes da carteira
                 write(fd, "escolha5", 10);
+                memset(buffer, 0, BUF_SIZE);
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
                 break;

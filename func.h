@@ -25,7 +25,7 @@
 
 typedef struct {
     char nome[500];  // QUESTION: qual e a diferenca entre este....
-    float preco_inicial;
+    float preco;
     int n_acoes;
 } acao;
 
