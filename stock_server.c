@@ -169,23 +169,22 @@ int main(int argc, char **argv) {
                         printf("%s", mercados);
                         for (int i = 0; i < n_merc; i++) {
                             memset(aux, 0, 200);
-                            printf("\t%s / n_acoes: %d\n", shared_memory->users[id].mercados[i].nome,shared_memory->users[id].mercados[i].num_acoes);
+                            printf("\t%s / n_acoes: %d\n", shared_memory->users[id].mercados[i].nome, shared_memory->users[id].mercados[i].num_acoes);
                             snprintf(aux, BUF_SIZE, "\t%s\n", shared_memory->users[id].mercados[i].nome);
                             strcat(mercados, aux);
                         }
-                        write(client_fd, mercados, BUF_SIZE);
                     } else {
                         snprintf(mercados, BUF_SIZE, "Nao tem acesso a nenhum mercado!!\n");
-                        write(client_fd, mercados, BUF_SIZE);
                     }
-
+                    write(client_fd, mercados, BUF_SIZE);
+                    printf("passou!\n");
                     // Escolhas feitas pelo user
                     process_client(client_fd, id);
 
                     remove_cpid(client_fd);
                     close(fd);
                     close(client_fd);
-                     printf("Cliente n%d deslogado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
+                    printf("Cliente n%d deslogado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
                     exit(0);
                 }
             }

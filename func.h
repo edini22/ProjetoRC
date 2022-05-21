@@ -24,7 +24,7 @@
 #define BUF_SIZE 1024
 
 typedef struct {
-    char nome[500];  // QUESTION: qual e a diferenca entre este....
+    char nome[500]; 
     float preco;
     int n_acoes;
 } acao;
@@ -36,7 +36,7 @@ typedef struct {
 } mercado;
 
 typedef struct {
-    char nome[500];  // QUESTION: qual e a diferenca entre este....
+    char nome[500];  
     int n_acoes;
 } acoes;
 

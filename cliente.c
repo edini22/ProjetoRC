@@ -23,30 +23,30 @@ int login(int fd) {
     // Login: Username:
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    fflush(stdout);
-    memset(buffer, 0, BUF_SIZE);
+    // fflush(stdout);
 
     // Send username
+    memset(buffer, 0, BUF_SIZE);
     scanf("%s", buffer);
     write(fd, buffer, BUF_SIZE);
-    fflush(stdout);
-    memset(buffer, 0, BUF_SIZE);
+    // fflush(stdout);
 
     // Password:
+    memset(buffer, 0, BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    fflush(stdout);
-    memset(buffer, 0, BUF_SIZE);
+    // fflush(stdout);
 
     // Send password
+    memset(buffer, 0, BUF_SIZE);
     scanf("%s", buffer);
     write(fd, buffer, BUF_SIZE);
-    fflush(stdout);
-    memset(buffer, 0, BUF_SIZE);
+    // fflush(stdout);
 
     // Verify login
     char erro_msgs[2][100] = {"\nO Username nao existe", "\nPassword incorreta"};
-    read(fd, buffer, BUF_SIZE);
+    memset(buffer, 0, BUF_SIZE);
+    read(fd, buffer, BUF_SIZE);//
     if (!strcmp(buffer, erro_msgs[0]) || !strcmp(buffer, erro_msgs[1])) {
         printf("Username ou password errada\n");
         return -1;
@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
 
     if (argc != 3) {
         erro("Parametros mal especificados. Exemplo:\nstock_server {PORTO_BOLSA} {PORTO_CONFIG} {ficheiro configuração}");
+        exit(-1);
     }
 
     // leitura dos parametros
@@ -102,7 +103,6 @@ int main(int argc, char **argv) {
         int escolha = 0;
         while (1) {
             printf("--MENU--\n--1 Subscrever as cotacoes de um mercado\n--2 Comprar uma acao\n--3 Vender uma acao\n--4 Ligar/Desligar feed de atualizacoes do mercado\n--5 Ver carteira de acoes e o saldo\n--6 Sair\n");
-
             scanf("%d", &escolha);
 
             switch (escolha) {
@@ -128,6 +128,7 @@ int main(int argc, char **argv) {
                 // Mostrar informcacoes da carteira
                 write(fd, "escolha5", 10);
                 memset(buffer, 0, BUF_SIZE);
+                printf("espera!%s\n",buffer);
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
                 break;
