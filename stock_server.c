@@ -86,11 +86,11 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    sem_unlink("MUTEX_COMPRAS");
-    // sem_unlink("MUTEX_MENU");
+    sem_unlink("SEM_COMPRAS");
+    sem_unlink("SEM_USERS");
     // sem_unlink("MUTEX_LOGIN");
-    shared_memory->sem_compras = sem_open("MUTEX_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
-    // shared_memory->mutex_menu = sem_open("MUTEX_MENU", O_CREAT | O_EXCL, 0700, 1);
+    shared_memory->sem_compras = sem_open("SEM_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
+    shared_memory->sem_users = sem_open("SEM_USERS", O_CREAT | O_EXCL, 0700, 1);
     // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
     // int i = 0;
     shared_memory->refresh_time = 2;
@@ -100,14 +100,15 @@ int main(int argc, char **argv) {
     // REFRESH =============================================================================
     pid_t pid_refresh;
     if ((pid_refresh = fork()) == 0) {
+        srand(time(NULL));
+        int r;
         while (1) {
-            sem_wait(shared_memory->sem_compras);
             sleep(shared_memory->refresh_time);
+            sem_wait(shared_memory->sem_compras);
             for (int m = 0; m < shared_memory->num_mercados; m++) {
                 for (int a = 0; a < shared_memory->mercados[m].num_acoes; a++) {
                     if (shared_memory->mercados[m].acoes[a].preco >= 0.02) {
-                        srand(time(NULL));
-                        int r = rand() % 2;
+                        r = rand() % 2;
                         if (r == 0)
                             shared_memory->mercados[m].acoes[a].preco -= 0.01;
                         else
@@ -120,8 +121,7 @@ int main(int argc, char **argv) {
                     } else if (shared_memory->mercados[m].acoes[a].n_acoes == 10) {
                         shared_memory->mercados[m].acoes[a].n_acoes += 10;
                     } else {
-                        srand(time(NULL));
-                        int r = rand() % 2;
+                        r = rand() % 2;
                         if (r == 0)
                             shared_memory->mercados[m].acoes[a].n_acoes -= 10;
                         else
@@ -148,13 +148,15 @@ int main(int argc, char **argv) {
             if (cpid == 0) {
                 char *username;
                 int id = 0;
+                sem_wait(shared_memory->sem_users);
                 if ((id = login(client_fd, username)) == -1) {
+                    sem_post(shared_memory->sem_users);
                     printf("Wrong Username or password\n");
                     close(fd);
                     close(client_fd);
                     exit(0);
                 } else {
-
+                    sem_post(shared_memory->sem_users);
                     add_cpid(client_fd);
 
                     printf("Cliente n%d logado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
@@ -162,6 +164,7 @@ int main(int argc, char **argv) {
                     // Enviar ao cliente os mercados que pode aceder
                     char mercados[BUF_SIZE];
                     memset(mercados, 0, BUF_SIZE);
+                    sem_wait(shared_memory->sem_users);
                     int n_merc = shared_memory->users[id].num_mercados;
                     if (n_merc != 0) {
                         char aux[200];
@@ -176,8 +179,8 @@ int main(int argc, char **argv) {
                     } else {
                         snprintf(mercados, BUF_SIZE, "Nao tem acesso a nenhum mercado!!\n");
                     }
+                    sem_post(shared_memory->sem_users);
                     write(client_fd, mercados, BUF_SIZE);
-                    printf("passou!\n");
                     // Escolhas feitas pelo user
                     process_client(client_fd, id);
 
@@ -223,7 +226,7 @@ int main(int argc, char **argv) {
         int condicao = 0;
         // Separar os argumentos dos comandos
         if (strlen(buffer) > 1)
-            buffer[strlen(buffer) - 1] = '\0'; // FIXME: Netcat
+            buffer[strlen(buffer) - 1] = '\0';
         int count = 0;
         char buffer2[BUF_SIZE];
         strcpy(buffer2, buffer);
@@ -252,6 +255,7 @@ int main(int argc, char **argv) {
                 for (int n = 0; n < 2; n++) {
                     // printf("%s\n", toke);
                     if (n == 1) {
+                        sem_wait(shared_memory->sem_users);
                         for (int i = 0; i < 10; i++) {
                             if (shared_memory->users[i].ocupado == true) {
                                 char aux[500];
@@ -263,35 +267,77 @@ int main(int argc, char **argv) {
                                 }
                             }
                         }
+                        sem_post(shared_memory->sem_users);
                     }
                     toke = strtok(NULL, " ");
                 }
-                // printf("\ncondiçao == %d\n", condicao);
+                // printf("\ncondiçao == %d\n", condicao);//TODO:VERIFICAR SE JA TEM O MERCADO A ADICIONAR! para nao resetar os mercados!
                 if (condicao == 1) {
                     char *tok = strtok(buffer2, " ");
+                    sem_wait(shared_memory->sem_users);
                     for (int n = 0; n < count; n++) {
                         if (n == 1) {
                             shared_memory->users[index].num_mercados = 0;
-                            shared_memory->users[index].num_acoes_compradas = 0;
+                            for (int m = 0; m < count; m++) {
+                                shared_memory->users[index].mercados[m].acesso = false;
+                            }
                         } else if (n == 2) {
                             strcpy(shared_memory->users[index].password, tok);
                         } else if ((n == 3 && count == 5) || (n == 3 && count == 6) || (n == 4 && count == 6)) {
                             if (shared_memory->num_mercados != 0) {
+
                                 for (int j = 0; j < shared_memory->num_mercados; j++) {
-                                    char aux[BUF_SIZE];
-                                    strcpy(aux, shared_memory->mercados[j].nome);
-                                    if (!strcmp(aux, tok)) {
-                                        strcpy(shared_memory->users[index].mercados[shared_memory->users[index].num_mercados].nome, aux);
-                                        shared_memory->users[index].num_mercados++;
-                                        break;
+
+                                    int count = 0;
+
+                                    if (!strcmp(shared_memory->mercados[j].nome, tok)) {
+                                        count++;
+                                        for (int m = 0; m < 2; m++) {
+                                            if (shared_memory->users[index].mercados[m].ocupado == true && !strcmp(shared_memory->users[index].mercados[m].nome, tok)) {
+                                                shared_memory->users[index].mercados[m].acesso = true;
+                                                shared_memory->users[index].num_mercados++;
+                                                count = -1;
+                                                break;
+                                            }
+                                        }
+                                        if (count == -1) {
+                                            break;
+                                        } else if (count == 1) {
+                                            for (int i = 0; i < 2; i++) {
+                                                if (shared_memory->users[index].mercados[i].ocupado == false) {
+                                                    strcpy(shared_memory->users[index].mercados[i].nome, tok);
+                                                    shared_memory->users[index].num_mercados++;
+                                                    shared_memory->users[index].mercados[i].ocupado = true;
+                                                    shared_memory->users[index].mercados[i].acesso = true;
+
+                                                    if (!strcmp(shared_memory->users[index].mercados[i].nome, shared_memory->mercados[0].nome)) {
+                                                        for (int a = 0; a < shared_memory->mercados[0].num_acoes; a++) {
+                                                            shared_memory->users[index].mercados[i].acao[a].n_acoes = 0;
+                                                            strcpy(shared_memory->users[index].mercados[i].acao[a].nome, shared_memory->mercados[0].acoes[a].nome);
+                                                        }
+                                                        shared_memory->users[index].mercados[i].num_acoes = shared_memory->mercados[0].num_acoes;
+                                                        shared_memory->users[index].mercados[i].n_acoes_comp_mercado = 0;
+                                                    } else if (!strcmp(shared_memory->users[index].mercados[i].nome, shared_memory->mercados[1].nome)) {
+                                                        for (int a = 0; a < shared_memory->mercados[1].num_acoes; a++) {
+                                                            shared_memory->users[index].mercados[i].acao[a].n_acoes = 0;
+                                                            strcpy(shared_memory->users[index].mercados[i].acao[a].nome, shared_memory->mercados[1].acoes[a].nome);
+                                                        }
+                                                        shared_memory->users[index].mercados[i].num_acoes = shared_memory->mercados[0].num_acoes;
+                                                        shared_memory->users[index].mercados[i].n_acoes_comp_mercado = 0;
+                                                    }
+                                                    break;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        } else if ((n == 3 || count == 4) || (n == 4 && count == 5) || (n == 5 && count == 6)) {
+                        } else if ((n == 3 && count == 4) || (n == 4 && count == 5) || (n == 5 && count == 6)) {
                             shared_memory->users[index].saldo = (float)atof(tok);
                         }
                         tok = strtok(NULL, " ");
                     }
+                    sem_post(shared_memory->sem_users);
                     memset(buffer, 0, BUF_SIZE);
                     snprintf(buffer, BUF_SIZE, "user %s atualizado! Clique enter para continuar\n", shared_memory->users[index].nome);
                     sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
@@ -302,8 +348,13 @@ int main(int argc, char **argv) {
                             if (shared_memory->users[i].ocupado == false) {
 
                                 char *tok = strtok(buffer2, " ");
+                                sem_wait(shared_memory->sem_users);
                                 for (int n = 0; n < count; n++) {
                                     if (n == 1) {
+                                        for (int m = 0; m < 2; m++) {
+                                            shared_memory->users[i].mercados[m].ocupado = false;
+                                            shared_memory->users[i].mercados[m].acesso = false;
+                                        }
                                         shared_memory->users[i].num_mercados = 0;
                                         shared_memory->users[i].num_acoes_compradas = 0;
                                         strcpy(shared_memory->users[i].nome, tok);
@@ -316,7 +367,27 @@ int main(int argc, char **argv) {
                                                 strcpy(aux, shared_memory->mercados[j].nome);
                                                 if (!strcmp(aux, tok)) {
                                                     strcpy(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].nome, aux);
+                                                    shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].ocupado = true;
+                                                    shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acesso = true;
                                                     shared_memory->users[i].num_mercados++;
+                                                    // TODO: adicionar acoes e inicializar variaveis!!
+                                                    if (!strcmp(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].nome, shared_memory->mercados[0].nome)) {
+                                                        for (int a = 0; a < shared_memory->mercados[0].num_acoes; a++) {
+                                                            shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acao[a].n_acoes = 0;
+                                                            strcpy(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acao[a].nome, shared_memory->mercados[0].acoes[a].nome);
+                                                        }
+                                                        shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].num_acoes = shared_memory->mercados[0].num_acoes;
+                                                        shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].n_acoes_comp_mercado = 0;
+
+                                                    } else if (!strcmp(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].nome, shared_memory->mercados[1].nome)) {
+                                                        for (int a = 0; a < shared_memory->mercados[1].num_acoes; a++) {
+                                                            shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acao[a].n_acoes = 0;
+                                                            strcpy(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acao[a].nome, shared_memory->mercados[1].acoes[a].nome);
+                                                        }
+                                                        shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].num_acoes = shared_memory->mercados[0].num_acoes;
+                                                        shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].n_acoes_comp_mercado = 0;
+                                                    }
+
                                                     break;
                                                 }
                                             }
@@ -328,6 +399,7 @@ int main(int argc, char **argv) {
                                     }
                                     tok = strtok(NULL, " ");
                                 }
+                                sem_post(shared_memory->sem_users);
                                 memset(buffer, 0, BUF_SIZE);
                                 snprintf(buffer, BUF_SIZE, "user %s adicionado! Clique enter para continuar\n", shared_memory->users[i].nome);
                                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
@@ -359,6 +431,7 @@ int main(int argc, char **argv) {
             } else {
                 bool existe = false;
                 char *tok = strtok(buffer2, " ");
+                sem_wait(shared_memory->sem_users);
                 for (int n = 0; n < 2; n++) {
                     // printf("%s\n", tok);
                     if (n == 1) {
@@ -387,9 +460,12 @@ int main(int argc, char **argv) {
                     }
                     tok = strtok(NULL, " ");
                 }
+                sem_post(shared_memory->sem_users);
             }
         } else if (!strcmp(buffer, "LIST")) {
+            sem_wait(shared_memory->sem_users);
             if (shared_memory->num_utilizadores == 0) {
+                sem_post(shared_memory->sem_users);
                 memset(buffer, 0, BUF_SIZE);
                 snprintf(buffer, BUF_SIZE, "Nao existem utilizadores registados! Clique enter para continuar\n");
                 sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
@@ -403,17 +479,21 @@ int main(int argc, char **argv) {
                         memset(aux, 0, BUF_SIZE);
                         snprintf(aux, 1500, "\nNome: %s Password: %s Saldo: %4.2f ", shared_memory->users[i].nome, shared_memory->users[i].password, shared_memory->users[i].saldo);
                         char aux2[BUF_SIZE];
-                        // printf("mercados = %d\n", shared_memory->users[i].num_mercados);
+                        printf("mercados = %d\n", shared_memory->users[i].num_mercados);
+                        //
                         if (shared_memory->users[i].num_mercados != 0) {
-                            for (int m = 0; m < shared_memory->users[i].num_mercados; m++) {
-                                memset(aux2, 0, BUF_SIZE);
-                                snprintf(aux2, BUF_SIZE, " %s ", shared_memory->users[i].mercados[m].nome);
-                                strcat(aux, aux2);
+                            for (int m = 0; m < 2; m++) {
+                                if (shared_memory->users[i].mercados[m].acesso == true) {
+                                    memset(aux2, 0, BUF_SIZE);
+                                    snprintf(aux2, BUF_SIZE, " %s ", shared_memory->users[i].mercados[m].nome);
+                                    strcat(aux, aux2);
+                                }
                             }
                         }
                         strcat(print, aux);
                     }
                 }
+                sem_post(shared_memory->sem_users);
                 memset(buffer, 0, BUF_SIZE);
                 sendto(s, print, strlen(print), 0, (struct sockaddr *)&admin_outra, slen);
             }

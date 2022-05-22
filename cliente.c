@@ -4,6 +4,7 @@
 
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +47,7 @@ int login(int fd) {
     // Verify login
     char erro_msgs[2][100] = {"\nO Username nao existe", "\nPassword incorreta"};
     memset(buffer, 0, BUF_SIZE);
-    read(fd, buffer, BUF_SIZE);//
+    read(fd, buffer, BUF_SIZE); //
     if (!strcmp(buffer, erro_msgs[0]) || !strcmp(buffer, erro_msgs[1])) {
         printf("Username ou password errada\n");
         return -1;
@@ -55,6 +56,14 @@ int login(int fd) {
     }
 
     return 0;
+}
+
+void *mostra_feed(void *args) {
+    // TODO: funcoes de broadcast e cenas
+    while(1){
+        sleep(1);
+        printf("feed\n");
+    }
 }
 
 int main(int argc, char **argv) {
@@ -101,6 +110,8 @@ int main(int argc, char **argv) {
 
         // Mostrar Menu
         int escolha = 0;
+        pthread_t feed_atualizacoes;
+        int toggle = 0;
         while (1) {
             printf("--MENU--\n--1 Subscrever as cotacoes de um mercado\n--2 Comprar uma acao\n--3 Vender uma acao\n--4 Ligar/Desligar feed de atualizacoes do mercado\n--5 Ver carteira de acoes e o saldo\n--6 Sair\n");
             scanf("%d", &escolha);
@@ -112,23 +123,47 @@ int main(int argc, char **argv) {
                 break;
             case 2:
                 write(fd, "escolha2", 10);
+                // Ver acoes que tem acesso
                 memset(buffer, 0, BUF_SIZE);
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
+
+                 // Enviar o mercado/acao/num
+                printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
+                char compra[BUF_SIZE];
+                scanf("%s", compra);
+                write(fd, compra, BUF_SIZE);
+
+                // Reposta do servidor
+                memset(buffer, 0, BUF_SIZE);
+                read(fd, buffer, BUF_SIZE);
+                printf("%s", buffer);
+
                 break;
             case 3:
                 write(fd, "escolha3", 10);
+                // Ver as acoes que possui
+                memset(buffer, 0, BUF_SIZE);
+                read(fd, buffer, BUF_SIZE);
+                printf("%s", buffer);
 
                 break;
             case 4:
                 write(fd, "escolha4", 10);
+                if (toggle == 0) {
+                    toggle = 1;
+                    pthread_create(&feed_atualizacoes, NULL, mostra_feed, NULL);
+                } else {
+                    toggle = 0;
+                    pthread_cancel(feed_atualizacoes);
+                }
 
                 break;
             case 5:
                 // Mostrar informcacoes da carteira
                 write(fd, "escolha5", 10);
                 memset(buffer, 0, BUF_SIZE);
-                printf("espera!%s\n",buffer);
+                printf("espera!%s\n", buffer);
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
                 break;

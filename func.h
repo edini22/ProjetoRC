@@ -45,6 +45,8 @@ typedef struct {
     acoes acao[3];
     int num_acoes;
     int n_acoes_comp_mercado;
+    bool ocupado;
+    bool acesso;
 } mercadosUser;
 
 typedef struct {
@@ -75,7 +77,7 @@ typedef struct {
     int clientes_atuais; // numero de clientes a acessar o servidor ao mesmo tempo
 
     sem_t *sem_compras;
-    sem_t *mutex_menu;
+    sem_t *sem_users;
     // sem_t *mutex_login;
     processo atuais[5];
 
