@@ -29,6 +29,9 @@ int login(int fd) {
     // Login: Username:
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
+    if(!strcmp(buffer,"Nao existem usuarios registados!")){
+        return -1;
+    }
     fflush(stdout);
 
     // Send username
@@ -218,17 +221,18 @@ int main(int argc, char **argv) {
                 char compra[BUF_SIZE * 2];
                 read(fd, compra, BUF_SIZE * 2);
                 printf("%s", compra);
+                if (strcmp(compra, "Voce nao tem acoes nao tem acesso a nenhum mercado!\n")) {
+                    // Enviar o mercado/acao/num
+                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
+                    memset(buffer, 0, BUF_SIZE);
+                    scanf("%s", buffer);
+                    write(fd, buffer, BUF_SIZE);
 
-                // Enviar o mercado/acao/num
-                printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
-                memset(buffer, 0, BUF_SIZE);
-                scanf("%s", buffer);
-                write(fd, buffer, BUF_SIZE);
-
-                // Reposta do servidor
-                memset(buffer, 0, BUF_SIZE);
-                read(fd, buffer, BUF_SIZE);
-                printf("%s", buffer);
+                    // Reposta do servidor
+                    memset(buffer, 0, BUF_SIZE);
+                    read(fd, buffer, BUF_SIZE);
+                    printf("%s", buffer);
+                }
 
                 break;
 
@@ -238,11 +242,19 @@ int main(int argc, char **argv) {
                 char venda[BUF_SIZE * 2];
                 read(fd, venda, BUF_SIZE * 2);
                 printf("%s", venda);
+                if (strcmp(compra, "Voce nao tem acoes em nenhum mercado!\n")) { 
+                    // Enviar o mercado/acao/num
+                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
+                    memset(buffer, 0, BUF_SIZE);
+                    scanf("%s", buffer);
+                    write(fd, buffer, BUF_SIZE);
 
-                // Venda bem sucedida (?)
-                // memset(buffer, 0, BUF_SIZE);
-                // read(fd, buffer, BUF_SIZE);
-                // printf("%s", buffer);
+                     // Reposta do servidor
+                    memset(buffer, 0, BUF_SIZE);
+                    read(fd, buffer, BUF_SIZE);
+                    printf("%s", buffer);
+
+                }
 
                 break;
 
