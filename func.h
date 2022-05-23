@@ -22,6 +22,8 @@
 #include <unistd.h>
 
 #define BUF_SIZE 1024
+#define GROUP1 "239.0.0.1"
+#define GROUP2 "239.0.0.2"
 
 int fd;
 int s;

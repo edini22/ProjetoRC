@@ -347,6 +347,61 @@ int process_client(int client_fd) {
             read(client_fd, buffer, BUF_SIZE);
 
             if (!strcmp(buffer, "escolha1")) {
+                sem_wait(shared_memory->sem_users);
+                // Mostrar ao user os mercados disponiveis
+                int n_merc = shared_memory->users[id].num_mercados;
+                if (n_merc != 0) {
+                    char aux[200];
+                    snprintf(buffer, BUF_SIZE, "Escolha um mercado para subscrever:\n");
+                    printf("%s", buffer);
+                    for (int i = 0; i < n_merc; i++) {
+                        memset(aux, 0, 200);
+                        snprintf(aux, BUF_SIZE, "%d - %s\n", i + 1, shared_memory->users[id].mercados[i].nome);
+                        printf("%s", aux);
+                        strcat(buffer, aux);
+                    }
+                } else {
+                    snprintf(buffer, BUF_SIZE, "Nao tem acesso a nenhum mercado pelo que nao pode subscrever a nenhuma cotacao\n");
+                    printf("%s", buffer);
+                }
+                sem_post(shared_memory->sem_users);
+                write(client_fd, buffer, BUF_SIZE);
+
+                // Receber o numero do mercado a subscrever
+                char numero[2];
+                printf("Numero de acoes = %d\n", n_merc);
+                read(client_fd, numero, 2);
+                int num = atoi(numero);
+                memset(buffer, 0, BUF_SIZE);
+                if (num > n_merc || num < 1) {
+                    snprintf(buffer, BUF_SIZE, "O numero nao e valido\n");
+                } else {
+                    num--; // para o indice ficar correto
+                    int mercado;
+                    for (int i = 0; i < shared_memory->num_mercados; i++) {
+                        for (int j = 0; j < shared_memory->users[id].num_mercados; j++) {
+                            // Encontrar o indice do mercado no array dos mercados
+                            if (!strcmp(shared_memory->mercados[i].nome, shared_memory->users[id].mercados[j].nome)) {
+                                // TODO: Devolver endereco do multicast
+                                // QUESTION: nao sei se temos de fazer mais alguma coisa a nao ser mandar o endereco...
+                                snprintf(buffer, BUF_SIZE, "Mercado escolhido: %s\n", shared_memory->users[id].mercados[j].nome);
+                                mercado = j;
+                            }
+                        }
+                    }
+
+                    // QUESTION: ...ou se vamos precisar disto
+                    // Multicast para o mercado bvl
+                    if (mercado == 0){
+                    
+                    // Multicast para o mercado nyse
+                    } else if (mercado ==1){
+
+                    }
+
+                }
+
+                write(client_fd, buffer, BUF_SIZE);
 
             } else if (!strcmp(buffer, "escolha2")) {
                 // variaveis
@@ -408,7 +463,7 @@ int process_client(int client_fd) {
                     printf("count -> %d\n", counti);
                     if (counti != 3) {
                         memset(buffer, 0, BUF_SIZE);
-                        snprintf(buffer, BUF_SIZE, "Numero de parametros errado!");
+                        snprintf(buffer, BUF_SIZE, "Numero de parametros errado!\n");
                         write(client_fd, buffer, BUF_SIZE);
                     } else {
                         while (token != NULL && continua) {
@@ -566,9 +621,9 @@ int process_client(int client_fd) {
             } else if (!strcmp(buffer, "escolha5")) {
                 printf("ENTREI!!\n");
                 char carteira[BUF_SIZE * 2];
-                snprintf(carteira, BUF_SIZE * 2, "Informacoes da carteira:\nSaldo disponivel: %f", shared_memory->users[id].saldo);
+                snprintf(carteira, BUF_SIZE * 2, "Informacoes da carteira:\nSaldo disponivel: %.3f\n", shared_memory->users[id].saldo);
                 if (shared_memory->users[id].num_acoes_compradas == 0) {
-                    strcat(carteira, "/ Voce nao tem acoes na carteira!");
+                    strcat(carteira, "Voce nao tem acoes na carteira!");
                 } else {
                     for (int i = 0; i < shared_memory->users[id].num_mercados; i++) {
                         int count = 0;

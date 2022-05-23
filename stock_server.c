@@ -7,6 +7,17 @@
 
 #include "func.h"
 
+pid_t pid;
+pid_t pid_refresh;
+
+void sigint(int signum) {
+    terminar(shm_id);
+    close(fd);
+    close(s);
+    kill(pid, SIGKILL);
+    kill(pid_refresh, SIGKILL);
+}
+
 int main(int argc, char **argv) {
     // Variaveis TCP
     int client_fd;
@@ -32,7 +43,7 @@ int main(int argc, char **argv) {
     char path[200];
     strcpy(path, argv[3]);
 
-    // TCP -----------------------------------
+    // TCP ---------------------------------------------------------------------------------
     bzero((void *)&addr, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -47,7 +58,7 @@ int main(int argc, char **argv) {
 
     client_addr_size = sizeof(client_addr);
 
-    // UDP ---------------------------------------
+    // UDP ---------------------------------------------------------------------------------
     if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         erro("na funcao socket (UDP)");
     }
@@ -59,6 +70,42 @@ int main(int argc, char **argv) {
     if (bind(s, (struct sockaddr *)&admin_addr, sizeof(admin_addr)) == -1) {
         erro("na funcao bind (UDP)");
     }
+
+    // MULTICAST ---------------------------------------------------------------------------
+    struct sockaddr_in multi1;
+    int sock_multi1;
+    struct sockaddr_in multi2;
+    int sock_multi2;
+    int multicastTTL = 255;
+    
+    if (sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0)) {
+        erro("na funcao socket(multicast)");
+    }
+    if (setsockopt(sock_multi1, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
+        erro("funcao socket opt");
+    }
+    bzero((char *)&addr, sizeof(addr));
+    multi1.sin_family = AF_INET;
+    multi1.sin_addr.s_addr = htonl(INADDR_ANY);
+    multi1.sin_port = htons(SERVER_PORT); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi1.sin_addr.s_addr = inet_addr(GROUP1);
+
+    if (sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) {
+        erro("na funcao socket(multicast)");
+    }
+    if (setsockopt(sock_multi2, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
+        erro("funcao socket opt");
+    }
+    bzero((char *)&addr, sizeof(addr));
+    multi2.sin_family = AF_INET;
+    multi2.sin_addr.s_addr = htonl(INADDR_ANY);
+    multi2.sin_port = htons(SERVER_PORT); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi1.sin_addr.s_addr = inet_addr(GROUP2);
+    // sendto(sock, message, sizeof(message), 0, (struct sockaddr *) &sock_multi1, sizeof(sock_multi1));
+
+    //--------------------------------------------------------------------------------------
+    // Ignore signal
+    // signal(SIGINT, SIG_IGN);
 
     // Open shared memory
     shm_id = shmget(IPC_PRIVATE, sizeof(SM), IPC_CREAT | IPC_EXCL | 0700);
@@ -101,7 +148,6 @@ int main(int argc, char **argv) {
     // signal(SIGQUIT, SIG_IGN); // Quit the process
 
     // REFRESH =============================================================================
-    pid_t pid_refresh;
     if ((pid_refresh = fork()) == 0) {
         shared_memory->refresh_pid = getpid();
         srand(time(NULL));
@@ -138,7 +184,6 @@ int main(int argc, char **argv) {
     }
 
     // TCP =================================================================================
-    pid_t pid;
     if ((pid = fork()) == 0) {
         while (shared_memory->clientes_atuais < 5) {
             while (waitpid(-1, NULL, WNOHANG) > 0)
@@ -173,6 +218,9 @@ int main(int argc, char **argv) {
     // Catch signals by main process
     // signal(SIGTSTP, SIGTSTP_HANDLER);
     // signal(SIGINT, SIGINT_HANDLER);
+
+    // Redirect signal
+    // signal(SIGINT, sigint);
 
     // UDP =================================================================================
     char buffer[BUF_SIZE];
@@ -496,7 +544,7 @@ int main(int argc, char **argv) {
             snprintf(buffer, BUF_SIZE, "O admin deslogado!\n");
             sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
             printf("%s", buffer);
-            while (login_admin(s) == -1)
+            while (login_admin(s) == -1) // FIXME: quando o admin sai, a consola do nc nao fecha pq fica a espera de login
                 ;
 
         } else if (!strcmp(buffer, "QUIT_SERVER")) { // ------------------------------------------
