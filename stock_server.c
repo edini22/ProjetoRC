@@ -77,8 +77,8 @@ int main(int argc, char **argv) {
     struct sockaddr_in multi2;
     int sock_multi2;
     int multicastTTL = 255;
-    
-    if (sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0)) {
+
+    if ((sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0))<0) {
         erro("na funcao socket(multicast)");
     }
     if (setsockopt(sock_multi1, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
@@ -87,10 +87,10 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi1.sin_family = AF_INET;
     multi1.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi1.sin_port = htons(SERVER_PORT); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi1.sin_port = htons(PORTO2); // FIXME: ver estes portos
     multi1.sin_addr.s_addr = inet_addr(GROUP1);
 
-    if (sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) {
+    if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0))<0) {
         erro("na funcao socket(multicast)");
     }
     if (setsockopt(sock_multi2, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi2.sin_family = AF_INET;
     multi2.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi2.sin_port = htons(SERVER_PORT); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi2.sin_port = htons(PORTO2); 
     multi1.sin_addr.s_addr = inet_addr(GROUP2);
     // sendto(sock, message, sizeof(message), 0, (struct sockaddr *) &sock_multi1, sizeof(sock_multi1));
 
@@ -150,8 +150,8 @@ int main(int argc, char **argv) {
     // REFRESH =============================================================================
     if ((pid_refresh = fork()) == 0) {
         shared_memory->refresh_pid = getpid();
-        srand(time(NULL));
         int r;
+        srand(time(NULL));
         while (1) {
             sleep(shared_memory->refresh_time);
             sem_wait(shared_memory->sem_compras);
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
                     }
                     if (shared_memory->mercados[m].acoes[a].n_acoes == 100) {
                         shared_memory->mercados[m].acoes[a].n_acoes -= 10;
-                    } else if (shared_memory->mercados[m].acoes[a].n_acoes == 10) {
+                    } else if (shared_memory->mercados[m].acoes[a].n_acoes <= 10) {
                         shared_memory->mercados[m].acoes[a].n_acoes += 10;
                     } else {
                         r = rand() % 2;
