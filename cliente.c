@@ -24,25 +24,25 @@ int login(int fd) {
     // Login: Username:
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    // fflush(stdout);
+    fflush(stdout);
 
     // Send username
     memset(buffer, 0, BUF_SIZE);
     scanf("%s", buffer);
     write(fd, buffer, BUF_SIZE);
-    // fflush(stdout);
+    fflush(stdout);
 
     // Password:
     memset(buffer, 0, BUF_SIZE);
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    // fflush(stdout);
+    fflush(stdout);
 
     // Send password
     memset(buffer, 0, BUF_SIZE);
     scanf("%s", buffer);
     write(fd, buffer, BUF_SIZE);
-    // fflush(stdout);
+    fflush(stdout);
 
     // Verify login
     char erro_msgs[2][100] = {"\nO Username nao existe", "\nPassword incorreta"};
@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
         exit(0);
     } else {
         // Receber do servidor os mercados que pode acede
+        printf("passei\n");
         memset(buffer, 0, BUF_SIZE);
         read(fd, buffer, BUF_SIZE);
         printf("%s", buffer);
@@ -128,7 +129,7 @@ int main(int argc, char **argv) {
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
 
-                 // Enviar o mercado/acao/num
+                // Enviar o mercado/acao/num
                 printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
                 char compra[BUF_SIZE];
                 scanf("%s", compra);

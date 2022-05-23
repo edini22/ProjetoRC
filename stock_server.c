@@ -7,11 +7,9 @@
 
 #include "func.h"
 
-int shm_id;
-
 int main(int argc, char **argv) {
     // Variaveis TCP
-    int fd, client_fd;
+    int client_fd;
     struct sockaddr_in addr, client_addr;
     int client_addr_size;
 
@@ -96,10 +94,16 @@ int main(int argc, char **argv) {
     shared_memory->refresh_time = 2;
 
     printf("A iniciar o servidor...\n");
+    // // Ignore Signals in this process
+    // signal(SIGTSTP, SIG_IGN);
+    // signal(SIGINT, SIG_IGN);
+    // signal(SIGHUP, SIG_IGN);  // Hung up the process
+    // signal(SIGQUIT, SIG_IGN); // Quit the process
 
     // REFRESH =============================================================================
     pid_t pid_refresh;
     if ((pid_refresh = fork()) == 0) {
+        shared_memory->refresh_pid = getpid();
         srand(time(NULL));
         int r;
         while (1) {
@@ -136,7 +140,6 @@ int main(int argc, char **argv) {
     // TCP =================================================================================
     pid_t pid;
     if ((pid = fork()) == 0) {
-
         while (shared_memory->clientes_atuais < 5) {
             while (waitpid(-1, NULL, WNOHANG) > 0)
                 ;
@@ -146,50 +149,17 @@ int main(int argc, char **argv) {
 
             pid_t cpid = fork();
             if (cpid == 0) {
-                char *username;
-                int id = 0;
-                sem_wait(shared_memory->sem_users);
-                if ((id = login(client_fd, username)) == -1) {
-                    sem_post(shared_memory->sem_users);
-                    printf("Wrong Username or password\n");
-                    close(fd);
-                    close(client_fd);
-                    exit(0);
-                } else {
-                    sem_post(shared_memory->sem_users);
-                    add_cpid(client_fd);
 
-                    printf("Cliente n%d logado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
+                // Escolhas feitas pelo user
+                int id = process_client(client_fd);
 
-                    // Enviar ao cliente os mercados que pode aceder
-                    char mercados[BUF_SIZE];
-                    memset(mercados, 0, BUF_SIZE);
-                    sem_wait(shared_memory->sem_users);
-                    int n_merc = shared_memory->users[id].num_mercados;
-                    if (n_merc != 0) {
-                        char aux[200];
-                        snprintf(mercados, BUF_SIZE, "Mercados disponiveis:\n");
-                        printf("%s", mercados);
-                        for (int i = 0; i < n_merc; i++) {
-                            memset(aux, 0, 200);
-                            printf("\t%s / n_acoes: %d\n", shared_memory->users[id].mercados[i].nome, shared_memory->users[id].mercados[i].num_acoes);
-                            snprintf(aux, BUF_SIZE, "\t%s\n", shared_memory->users[id].mercados[i].nome);
-                            strcat(mercados, aux);
-                        }
-                    } else {
-                        snprintf(mercados, BUF_SIZE, "Nao tem acesso a nenhum mercado!!\n");
-                    }
-                    sem_post(shared_memory->sem_users);
-                    write(client_fd, mercados, BUF_SIZE);
-                    // Escolhas feitas pelo user
-                    process_client(client_fd, id);
-
-                    remove_cpid(client_fd);
-                    close(fd);
-                    close(client_fd);
+                remove_cpid(client_fd);
+                if (id != -1)
                     printf("Cliente n%d deslogado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
-                    exit(0);
-                }
+
+                close(fd);
+                close(client_fd);
+                exit(0);
             }
         }
 
@@ -199,6 +169,10 @@ int main(int argc, char **argv) {
     // printf("mercado1: %s\n", shared_memory->mercados[0].nome);
     // printf("mercado2: %s\n", shared_memory->mercados[1].nome);
     // printf("Num mercados: %d\n", shared_memory->num_mercados);
+
+    // Catch signals by main process
+    // signal(SIGTSTP, SIGTSTP_HANDLER);
+    // signal(SIGINT, SIGINT_HANDLER);
 
     // UDP =================================================================================
     char buffer[BUF_SIZE];

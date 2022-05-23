@@ -310,168 +310,167 @@ int login_admin(int s) {
     }
 }
 
-void process_client(int client_fd, int id) {
+int process_client(int client_fd) {
     char buffer[BUF_SIZE];
+    int id = login(client_fd, buffer);
+    if (id == -1) {
+        printf("Wrong Username or password\n");
+    } else {
+        add_cpid(client_fd);
 
-    while (1) {
-        // Verificar a escolha do cliente
-        printf("while\n");
+        printf("Cliente n%d logado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
+
+        // Enviar ao cliente os mercados que pode aceder
         memset(buffer, 0, BUF_SIZE);
-        read(client_fd, buffer, BUF_SIZE);
+        sem_wait(shared_memory->sem_users);
+        int n_merc = shared_memory->users[id].num_mercados;
+        if (n_merc != 0) {
+            char aux[200];
+            snprintf(buffer, BUF_SIZE, "Mercados disponiveis:\n");
+            printf("%s", buffer);
+            for (int i = 0; i < n_merc; i++) {
+                memset(aux, 0, 200);
+                printf("\t%s / n_acoes: %d\n", shared_memory->users[id].mercados[i].nome, shared_memory->users[id].mercados[i].num_acoes);
+                snprintf(aux, BUF_SIZE, "\t%s\n", shared_memory->users[id].mercados[i].nome);
+                strcat(buffer, aux);
+            }
+        } else {
+            snprintf(buffer, BUF_SIZE, "Nao tem acesso a nenhum mercado!!\n");
+        }
+        sem_post(shared_memory->sem_users);
+        write(client_fd, buffer, BUF_SIZE);
 
-        if (!strcmp(buffer, "escolha1")) {
+        while (1) {
+            // Verificar a escolha do cliente
+            printf("while\n");
+            memset(buffer, 0, BUF_SIZE);
+            read(client_fd, buffer, BUF_SIZE);
 
-        } else if (!strcmp(buffer, "escolha2")) {
-            // variaveis
-            char carteira[BUF_SIZE * 2];
-            // listar os mercados e acoes que tem acesso!
-            int value;
-            sem_getvalue(shared_memory->sem_compras, &value);
-            printf("compras-> %d, ", value);
-            sem_getvalue(shared_memory->sem_users, &value);
-            printf("users -> %d \n", value);
-            sem_wait(shared_memory->sem_users);
-            if (shared_memory->users[id].num_mercados == 0) {
-                sem_post(shared_memory->sem_users);
-                snprintf(carteira, BUF_SIZE, "Voce nao tem acoes nao tem acesso a nenhum mercado!");
-            } else {
-                snprintf(carteira, BUF_SIZE * 2, "Informacoes dos mercados a que tem acesso:\n");
-                for (int i = 0; i < 2; i++) {
-                    sem_wait(shared_memory->sem_compras);
-                    if (shared_memory->users[id].mercados[i].acesso == true) {
-                        memset(buffer, 0, BUF_SIZE);
-                        snprintf(buffer, BUF_SIZE, "Mercado : %s\n", shared_memory->users[id].mercados[i].nome);
-                        strcat(carteira, buffer);
-                        for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
-                            if (!strcmp(shared_memory->users[id].mercados[0].nome, shared_memory->mercados[0].nome)) {
-                                memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, (shared_memory->mercados[0].acoes[j].preco + 0.02));
-                                strcat(carteira, buffer);
-                            } else if (!strcmp(shared_memory->users[id].mercados[i].nome, shared_memory->mercados[1].nome)) {
-                                memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, (shared_memory->mercados[1].acoes[j].preco + 0.02));
-                                strcat(carteira, buffer);
+            if (!strcmp(buffer, "escolha1")) {
+
+            } else if (!strcmp(buffer, "escolha2")) {
+                // variaveis
+                char carteira[BUF_SIZE * 2];
+                // listar os mercados e acoes que tem acesso!
+                int value;
+                sem_getvalue(shared_memory->sem_compras, &value);
+                printf("compras-> %d, ", value);
+                sem_getvalue(shared_memory->sem_users, &value);
+                printf("users -> %d \n", value);
+                sem_wait(shared_memory->sem_users);
+                if (shared_memory->users[id].num_mercados == 0) {
+                    sem_post(shared_memory->sem_users);
+                    snprintf(carteira, BUF_SIZE, "Voce nao tem acoes nao tem acesso a nenhum mercado!");
+                } else {
+                    snprintf(carteira, BUF_SIZE * 2, "Informacoes dos mercados a que tem acesso:\n");
+                    for (int i = 0; i < 2; i++) {
+                        sem_wait(shared_memory->sem_compras);
+                        if (shared_memory->users[id].mercados[i].acesso == true) {
+                            memset(buffer, 0, BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "Mercado : %s\n", shared_memory->users[id].mercados[i].nome);
+                            strcat(carteira, buffer);
+                            for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
+                                if (!strcmp(shared_memory->users[id].mercados[0].nome, shared_memory->mercados[0].nome)) {
+                                    memset(buffer, 0, BUF_SIZE);
+                                    snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, (shared_memory->mercados[0].acoes[j].preco + 0.02));
+                                    strcat(carteira, buffer);
+                                } else if (!strcmp(shared_memory->users[id].mercados[i].nome, shared_memory->mercados[1].nome)) {
+                                    memset(buffer, 0, BUF_SIZE);
+                                    snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, (shared_memory->mercados[1].acoes[j].preco + 0.02));
+                                    strcat(carteira, buffer);
+                                }
                             }
                         }
+                        sem_post(shared_memory->sem_compras);
                     }
-                    sem_post(shared_memory->sem_compras);
-                }
-                strcat(carteira, "\n");
-                write(client_fd, carteira, BUF_SIZE * 2);
-                printf("7\n");
+                    strcat(carteira, "\n");
+                    write(client_fd, carteira, BUF_SIZE * 2);
+                    printf("7\n");
 
-                // COMPRA
-                memset(buffer, 0, BUF_SIZE);
-                read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao
-                char *token = strtok(buffer, "/");
-                int count = 0;
-                int continua = 1;
-                int merc, ac;
-                char msg[BUF_SIZE];
-
-                char buffer2[BUF_SIZE];
-                strcpy(buffer2, buffer);
-                int counti = 0;
-                char *token2 = strtok(buffer2, "/");
-                while (token2 != NULL) {
-                    // printf("%s\n", token);
-                    counti++;
-                    token2 = strtok(NULL, "/");
-                }
-                printf("count -> %d\n", counti);
-                if (counti != 3) {
+                    // COMPRA
                     memset(buffer, 0, BUF_SIZE);
-                    snprintf(buffer, BUF_SIZE, "Numero de parametros errado!");
-                    write(client_fd, buffer, BUF_SIZE);
-                } else {
-                    while (token != NULL && continua) {
-                        int existe = 0;
+                    read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao
+                    char *token = strtok(buffer, "/");
+                    int count = 0;
+                    int continua = 1;
+                    int merc, ac;
+                    char msg[BUF_SIZE];
+
+                    char buffer2[BUF_SIZE];
+                    strcpy(buffer2, buffer);
+                    int counti = 0;
+                    char *token2 = strtok(buffer2, "/");
+                    while (token2 != NULL) {
                         // printf("%s\n", token);
-                        if (count == 0) { // MERCADO
-                            for (merc = 0; merc < 2 && continua; merc++) {
-                                // Verificar se o user tem acesso
-                                if (shared_memory->users[id].mercados[merc].acesso == true) {
-                                    // Encontar o indice do mercado
-                                    if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
-                                        existe = 1;
-                                        break;
+                        counti++;
+                        token2 = strtok(NULL, "/");
+                    }
+                    printf("count -> %d\n", counti);
+                    if (counti != 3) {
+                        memset(buffer, 0, BUF_SIZE);
+                        snprintf(buffer, BUF_SIZE, "Numero de parametros errado!");
+                        write(client_fd, buffer, BUF_SIZE);
+                    } else {
+                        while (token != NULL && continua) {
+                            int existe = 0;
+                            // printf("%s\n", token);
+                            if (count == 0) { // MERCADO
+                                for (merc = 0; merc < 2 && continua; merc++) {
+                                    // Verificar se o user tem acesso
+                                    if (shared_memory->users[id].mercados[merc].acesso == true) {
+                                        // Encontar o indice do mercado
+                                        if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
+                                            existe = 1;
+                                            break;
+                                        }
+                                    } else {
+                                        snprintf(msg, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
+                                        write(client_fd, msg, BUF_SIZE);
+                                        continua = 0;
                                     }
-                                } else {
-                                    snprintf(msg, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
+                                }
+                                if (!existe) {
+                                    snprintf(msg, BUF_SIZE, "O mercado que escolheu nao existe");
                                     write(client_fd, msg, BUF_SIZE);
                                     continua = 0;
                                 }
-                            }
-                            if (!existe) {
-                                snprintf(msg, BUF_SIZE, "O mercado que escolheu nao existe");
-                                write(client_fd, msg, BUF_SIZE);
-                                continua = 0;
-                            }
-                            count++;
+                                count++;
 
-                        } else if (count == 1) { // ACAO
-                            for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
-                                // Encontrar o indice da acao
-                                if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
-                                    existe = 1;
-                                    break;
-                                }
-                            }
-                            if (!existe) {
-                                snprintf(msg, BUF_SIZE, "A acao que escolheu nao existe");
-                                write(client_fd, msg, BUF_SIZE);
-                                continua = 0;
-                            }
-                            count++;
-
-                        } else { // QUANTIDADE
-                            int n = atoi(token);
-                            int total = 0;
-
-                            // Encontrar o indice do mercado e da acao no array dos mercados
-                            sem_wait(shared_memory->sem_compras);
-                            printf("passei wait_compras\n");
-                            for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
-                                if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
-                                    for (int a = 0; a < shared_memory->mercados[0].num_acoes && continua; a++) {
-                                        // Verificar se e possivel comprar a quantidade desejada de stocks
-                                        if (shared_memory->mercados[0].acoes[a].n_acoes < n) {
-                                            sem_post(shared_memory->sem_compras);
-                                            snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
-                                            write(client_fd, buffer, BUF_SIZE);
-                                            continua = 0;
-                                            // Encontar o preco do mercado e calcular o total
-                                        } else {
-                                            sem_post(shared_memory->sem_compras);
-                                            total = (shared_memory->mercados[0].acoes[a].preco + 0.02) * n;
-                                            continua = 0;
-                                            // Verificar se o saldo chega para a compra
-                                            if (shared_memory->users[id].saldo < total) {
-                                                snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
-                                                write(client_fd, buffer, BUF_SIZE);
-                                                // Realizar a compra efetivamente
-                                            } else {
-                                                shared_memory->users[id].saldo -= total;
-                                                shared_memory->users[id].mercados[merc].acao[a].n_acoes += n;
-                                                snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso.\n");
-                                                write(client_fd, buffer, BUF_SIZE);
-                                            }
-                                        }
+                            } else if (count == 1) { // ACAO
+                                for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
+                                    // Encontrar o indice da acao
+                                    if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
+                                        existe = 1;
+                                        break;
                                     }
+                                }
+                                if (!existe) {
+                                    snprintf(msg, BUF_SIZE, "A acao que escolheu nao existe");
+                                    write(client_fd, msg, BUF_SIZE);
+                                    continua = 0;
+                                }
+                                count++;
 
-                                } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
-                                    for (int a = 0; a < shared_memory->mercados[1].num_acoes && continua; a++) {
-                                        if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[a].nome)) {
-                                            // Verificar se e possivel comprar essa quantidade
-                                            if (shared_memory->mercados[1].acoes[a].n_acoes < n) {
+                            } else { // QUANTIDADE
+                                int n = atoi(token);
+                                int total = 0;
+
+                                // Encontrar o indice do mercado e da acao no array dos mercados
+                                sem_wait(shared_memory->sem_compras);
+                                printf("passei wait_compras\n");
+                                for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
+                                    if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
+                                        for (int a = 0; a < shared_memory->mercados[0].num_acoes && continua; a++) {
+                                            // Verificar se e possivel comprar a quantidade desejada de stocks
+                                            if (shared_memory->mercados[0].acoes[a].n_acoes < n) {
                                                 sem_post(shared_memory->sem_compras);
                                                 snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
                                                 write(client_fd, buffer, BUF_SIZE);
                                                 continua = 0;
+                                                // Encontar o preco do mercado e calcular o total
                                             } else {
                                                 sem_post(shared_memory->sem_compras);
-                                                // Encontar o preco do mercado e calcular o total
-                                                total = (shared_memory->mercados[1].acoes[a].preco + 0.02) * n;
+                                                total = (shared_memory->mercados[0].acoes[a].preco + 0.02) * n;
                                                 continua = 0;
                                                 // Verificar se o saldo chega para a compra
                                                 if (shared_memory->users[id].saldo < total) {
@@ -486,98 +485,128 @@ void process_client(int client_fd, int id) {
                                                 }
                                             }
                                         }
+
+                                    } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
+                                        for (int a = 0; a < shared_memory->mercados[1].num_acoes && continua; a++) {
+                                            if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[a].nome)) {
+                                                // Verificar se e possivel comprar essa quantidade
+                                                if (shared_memory->mercados[1].acoes[a].n_acoes < n) {
+                                                    sem_post(shared_memory->sem_compras);
+                                                    snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
+                                                    write(client_fd, buffer, BUF_SIZE);
+                                                    continua = 0;
+                                                } else {
+                                                    sem_post(shared_memory->sem_compras);
+                                                    // Encontar o preco do mercado e calcular o total
+                                                    total = (shared_memory->mercados[1].acoes[a].preco + 0.02) * n;
+                                                    continua = 0;
+                                                    // Verificar se o saldo chega para a compra
+                                                    if (shared_memory->users[id].saldo < total) {
+                                                        snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
+                                                        write(client_fd, buffer, BUF_SIZE);
+                                                        // Realizar a compra efetivamente
+                                                    } else {
+                                                        shared_memory->users[id].saldo -= total;
+                                                        shared_memory->users[id].mercados[merc].acao[a].n_acoes += n;
+                                                        snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso.\n");
+                                                        write(client_fd, buffer, BUF_SIZE);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        token = strtok(NULL, "/");
+                            token = strtok(NULL, "/");
+                        }
                     }
+
+                    sem_post(shared_memory->sem_users);
                 }
 
-                sem_post(shared_memory->sem_users);
-            }
+            } else if (!strcmp(buffer, "escolha3")) {
+                // variaveis
+                char carteira[BUF_SIZE * 2];
+                // Mostrar acoes que comprou previamente
+                if (shared_memory->users[id].num_mercados == 0) {
+                    snprintf(carteira, BUF_SIZE, "Voce nao tem acoes nao tem acesso a nenhum mercado!\n");
+                    strcat(carteira, "\n");
+                    write(client_fd, carteira, BUF_SIZE * 2);
+                    break;
+                } else {
+                    snprintf(carteira, BUF_SIZE * 2, "Acoes que possui para venda:\n");
+                    for (int i = 0; i < 2; i++) {
+                        sem_wait(shared_memory->sem_compras);
+                        if (shared_memory->users[id].mercados[i].acesso == true) {
+                            memset(buffer, 0, BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "Mercado : %s\n", shared_memory->users[id].mercados[i].nome);
+                            strcat(carteira, buffer);
+                            for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
+                                if (!strcmp(shared_memory->users[id].mercados[0].nome, shared_memory->mercados[0].nome)) {
+                                    memset(buffer, 0, BUF_SIZE);
+                                    snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d ;Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes, shared_memory->mercados[0].acoes[j].preco);
+                                    strcat(carteira, buffer);
+                                } else if (!strcmp(shared_memory->users[id].mercados[i].nome, shared_memory->mercados[1].nome)) {
+                                    memset(buffer, 0, BUF_SIZE);
+                                    snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d ; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes, shared_memory->mercados[1].acoes[j].preco);
+                                    strcat(carteira, buffer);
+                                }
+                            }
+                        }
+                        sem_post(shared_memory->sem_compras);
+                    }
+                    strcat(carteira, "\n");
+                    write(client_fd, carteira, BUF_SIZE * 2);
+                }
+                // TODO: vendas :)
 
-        } else if (!strcmp(buffer, "escolha3")) {
-            // variaveis
-            char carteira[BUF_SIZE * 2];
-            // Mostrar acoes que comprou previamente
-            if (shared_memory->users[id].num_mercados == 0) {
-                snprintf(carteira, BUF_SIZE, "Voce nao tem acoes nao tem acesso a nenhum mercado!\n");
-                strcat(carteira, "\n");
-                write(client_fd, carteira, BUF_SIZE * 2);
-                break;
-            } else {
-                snprintf(carteira, BUF_SIZE * 2, "Acoes que possui para venda:\n");
-                for (int i = 0; i < 2; i++) {
-                    sem_wait(shared_memory->sem_compras);
-                    if (shared_memory->users[id].mercados[i].acesso == true) {
+            } else if (!strcmp(buffer, "escolha4")) {
+
+            } else if (!strcmp(buffer, "escolha5")) {
+                printf("ENTREI!!\n");
+                char carteira[BUF_SIZE * 2];
+                snprintf(carteira, BUF_SIZE * 2, "Informacoes da carteira:\nSaldo disponivel: %f", shared_memory->users[id].saldo);
+                if (shared_memory->users[id].num_acoes_compradas == 0) {
+                    strcat(carteira, "/ Voce nao tem acoes na carteira!");
+                } else {
+                    for (int i = 0; i < shared_memory->users[id].num_mercados; i++) {
+                        int count = 0;
                         memset(buffer, 0, BUF_SIZE);
                         snprintf(buffer, BUF_SIZE, "Mercado : %s\n", shared_memory->users[id].mercados[i].nome);
                         strcat(carteira, buffer);
                         for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
-                            if (!strcmp(shared_memory->users[id].mercados[0].nome, shared_memory->mercados[0].nome)) {
+                            if (shared_memory->users[id].mercados[i].acao[j].n_acoes > 0) {
                                 memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d ;Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes, shared_memory->mercados[0].acoes[j].preco);
+                                snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes);
                                 strcat(carteira, buffer);
-                            } else if (!strcmp(shared_memory->users[id].mercados[i].nome, shared_memory->mercados[1].nome)) {
-                                memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d ; Preco: %.3f\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes, shared_memory->mercados[1].acoes[j].preco);
-                                strcat(carteira, buffer);
+                                count++;
                             }
                         }
+                        memset(buffer, 0, BUF_SIZE);
+                        snprintf(buffer, BUF_SIZE, "   Voce nao tem acoes na sua carteira deste mercado\n");
+                        strcat(carteira, buffer);
                     }
-                    sem_post(shared_memory->sem_compras);
                 }
                 strcat(carteira, "\n");
+                printf("%s", carteira);
                 write(client_fd, carteira, BUF_SIZE * 2);
+                printf("8\n");
+
+            } else if (!strcmp(buffer, "escolha6")) {
+                break;
             }
-            // TODO: vendas :)
-
-        } else if (!strcmp(buffer, "escolha4")) {
-
-        } else if (!strcmp(buffer, "escolha5")) {
-            printf("ENTREI!!\n");
-            char carteira[BUF_SIZE * 2];
-            snprintf(carteira, BUF_SIZE * 2, "Informacoes da carteira:\nSaldo disponivel: %f", shared_memory->users[id].saldo);
-            if (shared_memory->users[id].num_acoes_compradas == 0) {
-                strcat(carteira, "/ Voce nao tem acoes na carteira!");
-            } else {
-                for (int i = 0; i < shared_memory->users[id].num_mercados; i++) {
-                    int count = 0;
-                    memset(buffer, 0, BUF_SIZE);
-                    snprintf(buffer, BUF_SIZE, "Mercado : %s\n", shared_memory->users[id].mercados[i].nome);
-                    strcat(carteira, buffer);
-                    for (int j = 0; j < shared_memory->users[id].mercados[i].num_acoes; j++) {
-                        if (shared_memory->users[id].mercados[i].acao[j].n_acoes > 0) {
-                            memset(buffer, 0, BUF_SIZE);
-                            snprintf(buffer, BUF_SIZE, "   Nome da acao: %s; Quantidade: %d\n", shared_memory->users[id].mercados[i].acao[j].nome, shared_memory->users[id].mercados[i].acao[j].n_acoes);
-                            strcat(carteira, buffer);
-                            count++;
-                        }
-                    }
-                    memset(buffer, 0, BUF_SIZE);
-                    snprintf(buffer, BUF_SIZE, "   Voce nao tem acoes na sua carteira deste mercado\n");
-                    strcat(carteira, buffer);
-                }
-            }
-            strcat(carteira, "\n");
-            printf("%s", carteira);
-            write(client_fd, carteira, BUF_SIZE * 2);
-            printf("8\n");
-
-        } else if (!strcmp(buffer, "escolha6")) {
-            break;
         }
     }
+    return id;
 }
 
 void terminar(int shm_id) {
 
     sem_close(shared_memory->sem_compras);
-    // sem_close(shared_memory->mutex_menu);
-    sem_unlink("MUTEX_COMPRAS");
-    // sem_unlink("MUTEX_MENU");
+    sem_close(shared_memory->sem_users);
+    sem_unlink("SEM_COMPRAS");
+    sem_unlink("SEM_USERS");
     shmdt(shared_memory);
     shmctl(shm_id, IPC_RMID, NULL);
 }
@@ -601,4 +630,25 @@ void remove_cpid(int cliente) {
             break;
         }
     }
+}
+
+// Funcao que trata do CTRL-C (termina o programa)
+void SIGINT_HANDLER(int signum) {
+    sem_close(shared_memory->sem_compras);
+    sem_close(shared_memory->sem_users);
+    sem_unlink("SEM_COMPRAS");
+    sem_unlink("SEM_USERS");
+
+    kill(shared_memory->refresh_pid, SIGSEGV);
+    // Remove shared_memory
+    if (shmdt(shared_memory) == -1) {
+        perror("acoplamento impossivel");
+    }
+    if (shmctl(shm_id, IPC_RMID, 0) == -1) {
+        perror("destruicao impossivel");
+    }
+    close(fd);
+    close(s);
+
+    exit(0);
 }

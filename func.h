@@ -23,8 +23,11 @@
 
 #define BUF_SIZE 1024
 
+int fd;
+int s;
+
 typedef struct {
-    char nome[500]; 
+    char nome[500];
     float preco;
     int n_acoes;
 } acao;
@@ -36,7 +39,7 @@ typedef struct {
 } mercado;
 
 typedef struct {
-    char nome[500];  
+    char nome[500];
     int n_acoes;
 } acoes;
 
@@ -75,6 +78,7 @@ typedef struct {
     int refresh_time;
 
     int clientes_atuais; // numero de clientes a acessar o servidor ao mesmo tempo
+    int refresh_pid;
 
     sem_t *sem_compras;
     sem_t *sem_users;
@@ -83,6 +87,7 @@ typedef struct {
 
 } SM;
 
+int shm_id;
 SM *shared_memory;
 
 void erro(char *msg);
@@ -91,7 +96,7 @@ int login(int fd, char *username);
 
 int login_admin(int s);
 
-void process_client(int client_fd, int id);
+int process_client(int client_fd);
 
 int config(char *path);
 
@@ -100,5 +105,7 @@ void terminar(int shm_id);
 void add_cpid(int cliente);
 
 void remove_cpid(int cliente);
+
+void SIGINT_HANDLER(int signum);
 
 #endif
