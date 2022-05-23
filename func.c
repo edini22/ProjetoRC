@@ -342,7 +342,7 @@ int process_client(int client_fd) {
 
         while (1) {
             // Verificar a escolha do cliente
-            printf("while\n");
+            // printf("while\n");
             memset(buffer, 0, BUF_SIZE);
             read(client_fd, buffer, BUF_SIZE);
 

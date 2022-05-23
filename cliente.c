@@ -77,10 +77,9 @@ int main(int argc, char **argv) {
     }
 
     // leitura dos parametros
-
     char *ponteiro;
     char endereco[50];
-    char buffer[BUF_SIZE];
+    char buffer[BUF_SIZE*2];
 
     strcpy(endereco, argv[1]);
     int PORTO_BOLSA = (int)strtol(argv[2], &ponteiro, 10);
@@ -99,22 +98,22 @@ int main(int argc, char **argv) {
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         erro("Connect");
 
+
     if (login(fd) == -1) {
         close(fd);
         exit(0);
     } else {
         // Receber do servidor os mercados que pode acede
-        printf("passei\n");
-        memset(buffer, 0, BUF_SIZE);
-        read(fd, buffer, BUF_SIZE);
-        printf("%s", buffer);
+        memset(buffer, 0, BUF_SIZE*2);
+        read(fd, buffer, BUF_SIZE*2);
+        printf("\n%s", buffer);
 
         // Mostrar Menu
         int escolha = 0;
         pthread_t feed_atualizacoes;
         int toggle = 0;
         while (1) {
-            printf("--MENU--\n--1 Subscrever as cotacoes de um mercado\n--2 Comprar uma acao\n--3 Vender uma acao\n--4 Ligar/Desligar feed de atualizacoes do mercado\n--5 Ver carteira de acoes e o saldo\n--6 Sair\n");
+            printf("\n--MENU--\n--1 Subscrever as cotacoes de um mercado\n--2 Comprar uma acao\n--3 Vender uma acao\n--4 Ligar/Desligar feed de atualizacoes do mercado\n--5 Ver carteira de acoes e o saldo\n--6 Sair\n");
             scanf("%d", &escolha);
 
             switch (escolha) {
@@ -125,27 +124,27 @@ int main(int argc, char **argv) {
             case 2:
                 write(fd, "escolha2", 10);
                 // Ver acoes que tem acesso
-                memset(buffer, 0, BUF_SIZE);
-                read(fd, buffer, BUF_SIZE);
+                memset(buffer, 0, BUF_SIZE*2);
+                read(fd, buffer, BUF_SIZE*2);
                 printf("%s", buffer);
 
                 // Enviar o mercado/acao/num
                 printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
-                char compra[BUF_SIZE];
+                char compra[BUF_SIZE*2];
                 scanf("%s", compra);
-                write(fd, compra, BUF_SIZE);
+                write(fd, compra, BUF_SIZE*2);
 
                 // Reposta do servidor
-                memset(buffer, 0, BUF_SIZE);
-                read(fd, buffer, BUF_SIZE);
+                memset(buffer, 0, BUF_SIZE*2);
+                read(fd, buffer, BUF_SIZE*2);
                 printf("%s", buffer);
 
                 break;
             case 3:
                 write(fd, "escolha3", 10);
                 // Ver as acoes que possui
-                memset(buffer, 0, BUF_SIZE);
-                read(fd, buffer, BUF_SIZE);
+                memset(buffer, 0, BUF_SIZE*2);
+                read(fd, buffer, BUF_SIZE*2);
                 printf("%s", buffer);
 
                 break;
@@ -163,9 +162,9 @@ int main(int argc, char **argv) {
             case 5:
                 // Mostrar informcacoes da carteira
                 write(fd, "escolha5", 10);
-                memset(buffer, 0, BUF_SIZE);
+                memset(buffer, 0, BUF_SIZE*2);
                 printf("espera!%s\n", buffer);
-                read(fd, buffer, BUF_SIZE);
+                read(fd, buffer, BUF_SIZE*2);
                 printf("%s", buffer);
                 break;
             case 6:
