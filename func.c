@@ -406,7 +406,7 @@ int process_client(int client_fd) {
                 sem_getvalue(shared_memory->sem_users, &value);
                 printf("users -> %d \n", value);
 
-                sem_wait(shared_memory->sem_users);
+                // sem_wait(shared_memory->sem_users);
                 if (shared_memory->users[id].num_mercados == 0) {
                     sem_post(shared_memory->sem_users);
                     snprintf(carteira, BUF_SIZE, "Voce nao tem acoes nao tem acesso a nenhum mercado!");
@@ -437,147 +437,189 @@ int process_client(int client_fd) {
 
                     // COMPRA
                     memset(buffer, 0, BUF_SIZE);
-                    read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao
+                    read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao/preco
 
                     int count = 0;
+                    int excecao = 0;
                     int continua = 1;
                     int merc, ac;
                     char msg[BUF_SIZE];
-
+                    float price;
                     char buffer2[BUF_SIZE];
                     strcpy(buffer2, buffer);
                     int counti = 0;
                     char *token2 = strtok(buffer2, "/");
                     while (token2 != NULL) {
                         counti++;
+                        if (counti == 4) {
+                            price = atof(token2);
+                            if (price <= 0) {
+                                memset(buffer, 0, BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Insira um preco correto!\n");
+                                excecao = 1;
+                            }
+                        }
+                        if (counti == 3) {
+                            int n = atoi(token2);
+                            if (n <= 0) {
+                                memset(buffer, 0, BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Insira uma quantidade correta!\n");
+                                excecao = 1;
+                            }
+                        }
                         token2 = strtok(NULL, "/");
                     }
-                    if (counti != 3) {
-                        memset(buffer, 0, BUF_SIZE);
-                        snprintf(buffer, BUF_SIZE, "Numero de parametros errado!\n");
-                        write(client_fd, buffer, BUF_SIZE);
+                    if (counti != 4 || excecao == 1) {
+                        if (excecao == 1) {
+                            write(client_fd, buffer, BUF_SIZE);
+                        } else {
+                            memset(buffer, 0, BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "Numero de parametros errado!\n");
+                            write(client_fd, buffer, BUF_SIZE);
+                        }
                     } else {
                         char *token = strtok(buffer, "/");
-                        while (token != NULL && continua) {
-                            int existe = 0;
-                            // printf("%s\n", token);
-                            if (count == 0) { // MERCADO
-                                for (merc = 0; merc < 2 && continua; merc++) {
-                                    // Verificar se o user tem acesso
-                                    if (shared_memory->users[id].mercados[merc].acesso == true) {
-                                        // Encontar o indice do mercado
-                                        if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
-                                            existe = 1;
-                                            break;
-                                        }
-                                    } else {
-                                        snprintf(msg, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
-                                        write(client_fd, msg, BUF_SIZE);
-                                        continua = 0;
-                                    }
-                                }
-                                if (!existe) {
-                                    snprintf(msg, BUF_SIZE, "O mercado que escolheu nao existe");
-                                    write(client_fd, msg, BUF_SIZE);
-                                    continua = 0;
-                                }
-                                count++;
 
-                            } else if (count == 1) { // ACAO
-                                for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
-                                    // Encontrar o indice da acao
-                                    if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
-                                        existe = 1;
-                                        break;
-                                    }
-                                }
-                                if (!existe) {
-                                    snprintf(msg, BUF_SIZE, "A acao que escolheu nao existe");
-                                    write(client_fd, msg, BUF_SIZE);
-                                    continua = 0;
-                                }
-                                count++;
+                        int existe = 0;
+                        int existe_acao = 0;
 
-                            } else { // QUANTIDADE
-                                int n = atoi(token);
-                                float total = 0;
+                        for (merc = 0; merc < 2 && continua; merc++) {
+                            // Verificar se o user tem acesso
+                            if (shared_memory->users[id].mercados[merc].acesso == true) {
+                                // Encontar o indice do mercado
+                                if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
+                                    existe = 1;
+                                    token = strtok(NULL, "/");
+                                    for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
+                                        // Encontrar o indice da acao
+                                        if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
+                                            token = strtok(NULL, "/");
+                                            int n = atoi(token);
+                                            float total = 0;
 
-                                // Encontrar o indice do mercado e da acao no array dos mercados
-                                sem_wait(shared_memory->sem_compras);
-                                for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
-                                    if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
-                                        for (int a = 0; a < shared_memory->mercados[0].num_acoes && continua; a++) {
-                                            // Verificar se e possivel comprar a quantidade desejada de stocks
-                                            if (shared_memory->mercados[0].acoes[a].n_acoes < n) {
-                                                sem_post(shared_memory->sem_compras);
-                                                snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
-                                                write(client_fd, buffer, BUF_SIZE);
-                                                continua = 0;
-                                                // Encontar o preco do mercado e calcular o total
-                                            } else {
-                                                sem_post(shared_memory->sem_compras);
-                                                total = (shared_memory->mercados[0].acoes[a].preco + 0.02) * n;
-                                                continua = 0;
-                                                // Verificar se o saldo chega para a compra
-                                                if (shared_memory->users[id].saldo < total) {
-                                                    snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
-                                                    write(client_fd, buffer, BUF_SIZE);
-                                                    // Realizar a compra efetivamente
-                                                } else {
-                                                    shared_memory->users[id].saldo -= total;
-                                                    shared_memory->users[id].mercados[merc].acao[a].n_acoes += n;
-                                                    shared_memory->users[id].num_acoes_compradas += n;
-                                                    snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso.\n");
-                                                    write(client_fd, buffer, BUF_SIZE);
-                                                }
-                                            }
-                                        }
-
-                                    } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
-                                        for (int a = 0; a < shared_memory->mercados[1].num_acoes && continua; a++) {
-                                            if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[a].nome)) {
-                                                // Verificar se e possivel comprar essa quantidade
-                                                if (shared_memory->mercados[1].acoes[a].n_acoes < n) {
-                                                    sem_post(shared_memory->sem_compras);
-                                                    snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
-                                                    write(client_fd, buffer, BUF_SIZE);
-                                                    continua = 0;
-                                                } else {
-                                                    sem_post(shared_memory->sem_compras);
-                                                    // Encontar o preco do mercado e calcular o total
-                                                    total = (shared_memory->mercados[1].acoes[a].preco + 0.02) * n;
-                                                    continua = 0;
-                                                    // Verificar se o saldo chega para a compra
-                                                    if (shared_memory->users[id].saldo < total) {
-                                                        snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
+                                            // Encontrar o indice do mercado e da acao no array dos mercados
+                                            sem_wait(shared_memory->sem_compras);
+                                            for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
+                                                if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
+                                                    // Verificar se e possivel comprar a quantidade desejada de stocks
+                                                    if (shared_memory->mercados[0].acoes[ac].n_acoes < n) {
+                                                        sem_post(shared_memory->sem_compras);
+                                                        snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
                                                         write(client_fd, buffer, BUF_SIZE);
-                                                        // Realizar a compra efetivamente
+                                                        continua = 0;
+                                                        // Encontar o preco do mercado e calcular o total
                                                     } else {
-                                                        shared_memory->users[id].saldo -= total;
-                                                        shared_memory->users[id].mercados[merc].acao[a].n_acoes += n;
-                                                        shared_memory->users[id].num_acoes_compradas += n;
-                                                        snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso.\n");
-                                                        write(client_fd, buffer, BUF_SIZE);
+                                                        sem_post(shared_memory->sem_compras);
+                                                        total = (shared_memory->mercados[0].acoes[ac].preco + 0.02) * n;
+                                                        continua = 0;
+                                                        // verificar se o preco e menor ou igual ao atual
+                                                        if ((shared_memory->mercados[0].acoes[ac].preco + 0.02) > price) {
+                                                            memset(buffer, 0, BUF_SIZE);
+                                                            snprintf(buffer, BUF_SIZE, "O preco que voce disponibilizou para cada acao foi ultrapassado.(preco acao = %f)\n", (shared_memory->mercados[0].acoes[ac].preco + 0.02));
+                                                            write(client_fd, buffer, BUF_SIZE);
+                                                            break;
+                                                        } else {
+                                                            // Verificar se o saldo chega para a compra
+                                                            if (shared_memory->users[id].saldo < total) {
+                                                                memset(buffer, 0, BUF_SIZE);
+                                                                snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
+                                                                write(client_fd, buffer, BUF_SIZE);
+                                                                break;
+                                                            } else { // Realizar a compra efetivamente
+                                                                shared_memory->users[id].saldo -= total;
+                                                                shared_memory->users[id].mercados[merc].acao[ac].n_acoes += n;
+                                                                shared_memory->users[id].num_acoes_compradas += n;
+                                                                memset(buffer, 0, BUF_SIZE);
+                                                                snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso(preco acao = %f)/(Quantidade = %d).\n", (shared_memory->mercados[0].acoes[ac].preco + 0.02), n);
+                                                                write(client_fd, buffer, BUF_SIZE);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+
+                                                } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
+
+                                                    if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[ac].nome)) {
+                                                        // Verificar se e possivel comprar essa quantidade
+                                                        if (shared_memory->mercados[1].acoes[ac].n_acoes < n) {
+                                                            sem_post(shared_memory->sem_compras);
+                                                            memset(buffer, 0, BUF_SIZE);
+                                                            snprintf(buffer, BUF_SIZE, "Nao existe essa quantidade de acoes em stock.\n");
+                                                            write(client_fd, buffer, BUF_SIZE);
+                                                            continua = 0;
+                                                        } else {
+                                                            sem_post(shared_memory->sem_compras);
+                                                            // Encontar o preco do mercado e calcular o total
+                                                            total = (shared_memory->mercados[1].acoes[ac].preco + 0.02) * n;
+                                                            continua = 0;
+                                                            // verificar se o preco e menor ou igual ao atual
+                                                            if ((shared_memory->mercados[1].acoes[ac].preco + 0.02) > price) {
+                                                                memset(buffer, 0, BUF_SIZE);
+                                                                snprintf(buffer, BUF_SIZE, "O preco que voce disponibilizou para cada acao foi ultrapassado.(preco acao = %f)\n", (shared_memory->mercados[1].acoes[ac].preco + 0.02));
+                                                                write(client_fd, buffer, BUF_SIZE);
+                                                                break;
+                                                            } else {
+                                                                // Verificar se o saldo chega para a compra
+                                                                if (shared_memory->users[id].saldo < total) {
+                                                                    memset(buffer, 0, BUF_SIZE);
+                                                                    snprintf(buffer, BUF_SIZE, "Voce nao tem saldo suficiente.\n");
+                                                                    write(client_fd, buffer, BUF_SIZE);
+                                                                    break;
+                                                                    // Realizar a compra efetivamente
+                                                                } else {
+                                                                    shared_memory->users[id].saldo -= total;
+                                                                    shared_memory->users[id].mercados[merc].acao[ac].n_acoes += n;
+                                                                    shared_memory->users[id].num_acoes_compradas += n;
+                                                                    memset(buffer, 0, BUF_SIZE);
+                                                                    snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso(preco acao = %f)/(Quantidade = %d).\n", (shared_memory->mercados[1].acoes[ac].preco + 0.02), n);
+                                                                    write(client_fd, buffer, BUF_SIZE);
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
+
+                                            existe_acao = 1;
+                                            break;
                                         }
                                     }
-                                }
-                            }
+                                    if (!existe_acao) {
+                                        memset(buffer,0,BUF_SIZE);
+                                        snprintf(buffer, BUF_SIZE, "A acao que escolheu nao existe");
+                                        write(client_fd, buffer, BUF_SIZE);
+                                        continua = 0;
+                                    }
 
-                            token = strtok(NULL, "/");
+                                    existe = 1;
+                                    break;
+                                }
+                            } else {
+                                memset(buffer,0,BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
+                                write(client_fd, buffer, BUF_SIZE);
+                                continua = 0;
+                                existe = 1;
+
+                            }
+                        }
+                        if (!existe) {
+                            memset(buffer,0,BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "O mercado que escolheu nao existe");
+                            write(client_fd, buffer, BUF_SIZE);
+                            continua = 0;
                         }
                     }
 
-                    sem_post(shared_memory->sem_users);
+                    // sem_post(shared_memory->sem_users);
                 }
 
             } else if (!strcmp(buffer, "escolha3")) {
                 // variaveis
                 char carteira[BUF_SIZE * 2];
                 // Mostrar acoes que comprou previamente
-                if (shared_memory->users[id].num_mercados == 0) {
+                if (shared_memory->users[id].num_acoes_compradas == 0) {
                     snprintf(carteira, BUF_SIZE, "Voce nao tem acoes em nenhum mercado!");
                     strcat(carteira, "\n");
                     write(client_fd, carteira, BUF_SIZE * 2);
@@ -611,139 +653,162 @@ int process_client(int client_fd) {
                     // TODO: vendas :)
 
                     memset(buffer, 0, BUF_SIZE);
-                    read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao
+                    read(client_fd, buffer, BUF_SIZE); // mercado/acao/n_acao/preco
 
                     int count = 0;
                     int continua = 1;
+                    float price = 0;
                     int merc, ac;
                     char msg[BUF_SIZE];
                     int quantidade = 0;
                     char buffer2[BUF_SIZE];
                     strcpy(buffer2, buffer);
+                    int excecao = 0;
                     int counti = 0;
                     char *token2 = strtok(buffer2, "/");
                     while (token2 != NULL) {
                         counti++;
-                        if (counti == 3) {
-                            quantidade = atoi(token2);
-                            if (quantidade == 0) {
+                        if (counti == 4) {
+                            price = atof(token2);
+                            if (price <= 0) {
                                 memset(buffer, 0, BUF_SIZE);
-                                snprintf(buffer, BUF_SIZE, "Insira uma quantidade positiva!\n");
-                                write(client_fd, buffer, BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Insira um preco correto!\n");
+                                excecao = 1;
+                            }
+                        }
+                        if (counti == 3) {
+                            int n = atoi(token2);
+                            if (n <= 0) {
+                                memset(buffer, 0, BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Insira uma quantidade correta!\n");
+                                excecao = 1;
                             }
                         }
                         token2 = strtok(NULL, "/");
                     }
-                    if (counti != 3) {
-                        memset(buffer, 0, BUF_SIZE);
-                        snprintf(buffer, BUF_SIZE, "Numero de parametros errado!\n");
-                        write(client_fd, buffer, BUF_SIZE);
+                    if (counti != 4 || excecao == 1) {
+                        if (excecao == 1) {
+                            write(client_fd, buffer, BUF_SIZE);
+                        } else {
+                            memset(buffer, 0, BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "Numero de parametros errado!\n");
+                            write(client_fd, buffer, BUF_SIZE);
+                        }
                     } else {
                         char *token = strtok(buffer, "/");
-                        while (token != NULL && continua) {
-                            int existe = 0;
-                            // printf("%s\n", token);
-                            if (count == 0) { // MERCADO
-                                for (merc = 0; merc < 2 && continua; merc++) {
-                                    // Verificar se o user tem acesso
-                                    if (shared_memory->users[id].mercados[merc].acesso == true) {
-                                        // Encontar o indice do mercado
-                                        if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
-                                            existe = 1;
-                                            break;
-                                        }
-                                    } else {
-                                        snprintf(msg, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
-                                        write(client_fd, msg, BUF_SIZE);
-                                        continua = 0;
-                                    }
-                                }
-                                if (!existe) {
-                                    snprintf(msg, BUF_SIZE, "O mercado que escolheu nao existe");
-                                    write(client_fd, msg, BUF_SIZE);
-                                    continua = 0;
-                                }
-                                count++;
 
-                            } else if (count == 1) { // ACAO
-                                for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
-                                    // Encontrar o indice da acao
-                                    if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
-                                        existe = 1;
-                                        break;
-                                    }
-                                }
-                                if (!existe) {
-                                    snprintf(msg, BUF_SIZE, "A acao que escolheu nao existe");
-                                    write(client_fd, msg, BUF_SIZE);
-                                    continua = 0;
-                                }
-                                count++;
+                        int existe = 0;
+                        int existe_acao = 0;
 
-                            } else { // QUANTIDADE
-                                int n = atoi(token);
-                                float total = 0;
+                        for (merc = 0; merc < 2 && continua; merc++) { // MERCADO
+                            // Verificar se o user tem acesso
+                            if (shared_memory->users[id].mercados[merc].acesso == true) {
+                                // Encontar o indice do mercado
+                                if (!strcmp(shared_memory->users[id].mercados[merc].nome, token)) {
+                                    token = strtok(NULL, "/");
+                                    for (ac = 0; ac < shared_memory->users[id].mercados[merc].num_acoes && continua; ac++) {
+                                        // Encontrar o indice da acao
+                                        if (!strcmp(shared_memory->users[id].mercados[merc].acao[ac].nome, token)) {
+                                            token = strtok(NULL, "/");
+                                            int n = atoi(token);
+                                            float total = 0;
 
-                                // Encontrar o indice do mercado e da acao no array dos mercados
-                                sem_wait(shared_memory->sem_compras);
-                                for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
-                                    if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
-                                        for (int a = 0; a < shared_memory->mercados[0].num_acoes && continua; a++) {
-                                            // Verificar se e possivel vender a quantidade
-                                            if (shared_memory->users[id].mercados[merc].acao[a].n_acoes < n) {
-                                                sem_post(shared_memory->sem_compras);
-                                                snprintf(buffer, BUF_SIZE, "Voce nao tem essa quantidade de acoes dessas acoes.\n");
-                                                write(client_fd, buffer, BUF_SIZE);
-                                                continua = 0;
-                                                // Encontar o preco do mercado e calcular o total
-                                            } else {
-                                                total = shared_memory->mercados[0].acoes[a].preco * n;
-                                                sem_post(shared_memory->sem_compras);
-                                                continua = 0;
+                                            // Encontrar o indice do mercado e da acao no array dos mercados
+                                            sem_wait(shared_memory->sem_compras);
+                                            for (int m = 0; m < shared_memory->users[id].num_mercados && continua; m++) {
+                                                if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[0].nome)) {
 
-                                                shared_memory->users[id].saldo += total;
-                                                shared_memory->users[id].mercados[merc].acao[a].n_acoes -= n;
-                                                shared_memory->users[id].num_acoes_compradas -= n;
-                                                snprintf(buffer, BUF_SIZE, "Venda efetuada com sucesso.\n");
-                                                write(client_fd, buffer, BUF_SIZE);
-                                            }
-                                        }
+                                                    if (shared_memory->mercados[0].acoes[ac].preco < price) {
+                                                        sem_post(shared_memory->sem_compras);
+                                                        memset(buffer, 0, BUF_SIZE);
+                                                        snprintf(buffer, BUF_SIZE, "O preco da acao desceu, logo nao pode vender a esse preco.(Preco p/ acao = %f)\n", shared_memory->mercados[0].acoes[ac].preco);
+                                                        write(client_fd, buffer, BUF_SIZE);
+                                                    } else {
+                                                        // Encontar o preco do mercado e calcular o total
+                                                        float prec = shared_memory->mercados[0].acoes[ac].preco;
+                                                        sem_post(shared_memory->sem_compras);
+                                                        total = prec * n;
+                                                        continua = 0;
 
-                                    } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
-                                        for (int a = 0; a < shared_memory->mercados[1].num_acoes && continua; a++) {
-                                            if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[a].nome)) {
-                                                // Verificar se e possivel vender essa quantidade
-                                                if (shared_memory->users[id].mercados[merc].acao[a].n_acoes < n) {
-                                                    sem_post(shared_memory->sem_compras);
-                                                    snprintf(buffer, BUF_SIZE, "Voce nao tem essa quantidade de acoes dessas acoes.\n");
-                                                    write(client_fd, buffer, BUF_SIZE);
-                                                    continua = 0;
-                                                    // Encontar o preco do mercado e calcular o total
-                                                } else {
-                                                    // Encontar o preco do mercado e calcular o total
-                                                    total = shared_memory->mercados[1].acoes[a].preco * n;
-                                                    sem_post(shared_memory->sem_compras);
-                                                    continua = 0;
+                                                        shared_memory->users[id].saldo += total;
+                                                        shared_memory->users[id].mercados[merc].acao[ac].n_acoes -= n;
+                                                        shared_memory->users[id].num_acoes_compradas -= n;
+                                                        memset(buffer, 0, BUF_SIZE);
+                                                        snprintf(buffer, BUF_SIZE, "Venda efetuada com sucesso(Preco p/ acao = %f)/(Quantidade = %d).\n", prec, n);
+                                                        write(client_fd, buffer, BUF_SIZE);
+                                                        break;
+                                                    }
 
-                                                    shared_memory->users[id].saldo += total;
-                                                    shared_memory->users[id].mercados[merc].acao[a].n_acoes -= n;
-                                                    shared_memory->users[id].num_acoes_compradas -= n;
-                                                    snprintf(buffer, BUF_SIZE, "Compra efetuada com sucesso.\n");
-                                                    write(client_fd, buffer, BUF_SIZE);
+                                                } else if (!strcmp(shared_memory->users[id].mercados[m].nome, shared_memory->mercados[1].nome)) {
+
+                                                    if (!strcpy(shared_memory->users[id].mercados[merc].acao[ac].nome, shared_memory->mercados[1].acoes[ac].nome)) {
+                                                        // Verificar se e possivel vender essa quantidade
+                                                        if (shared_memory->users[id].mercados[merc].acao[ac].n_acoes < n) {
+                                                            sem_post(shared_memory->sem_compras);
+                                                            snprintf(buffer, BUF_SIZE, "Voce nao tem essa quantidade de acoes dessas acoes.\n");
+                                                            write(client_fd, buffer, BUF_SIZE);
+                                                            continua = 0;
+                                                            // Encontar o preco do mercado e calcular o total
+                                                        } else {
+                                                            if (shared_memory->mercados[0].acoes[ac].preco < price) {
+                                                                sem_post(shared_memory->sem_compras);
+                                                                memset(buffer, 0, BUF_SIZE);
+                                                                snprintf(buffer, BUF_SIZE, "O preco da acao desceu, logo nao pode vender a esse preco.(Preco p/ acao = %f)\n", shared_memory->mercados[1].acoes[ac].preco);
+                                                                write(client_fd, buffer, BUF_SIZE);
+                                                                continua = 0;
+                                                            } else {
+                                                                // Encontar o preco do mercado e calcular o total
+                                                                float prec = shared_memory->mercados[1].acoes[ac].preco;
+                                                                sem_post(shared_memory->sem_compras);
+                                                                total = prec * n;
+                                                                continua = 0;
+
+                                                                shared_memory->users[id].saldo += total;
+                                                                shared_memory->users[id].mercados[merc].acao[ac].n_acoes -= n;
+                                                                shared_memory->users[id].num_acoes_compradas -= n;
+                                                                memset(buffer, 0, BUF_SIZE);
+                                                                snprintf(buffer, BUF_SIZE, "Venda efetuada com sucesso(Preco p/ acao = %f)/(Quantidade = %d).\n", prec, n);
+                                                                write(client_fd, buffer, BUF_SIZE);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
+
+                                            existe_acao = 1;
+                                            break;
                                         }
                                     }
-                                }
-                            }
+                                    if (!existe_acao) {
+                                        memset(buffer,0,BUF_SIZE);
+                                        snprintf(buffer, BUF_SIZE, "A acao que escolheu nao existe");
+                                        write(client_fd, buffer, BUF_SIZE);
+                                        continua = 0;
+                                    }
 
-                            token = strtok(NULL, "/");
+                                    existe = 1;
+                                    break;
+                                }
+                            } else {
+                                memset(buffer,0,BUF_SIZE);
+                                snprintf(buffer, BUF_SIZE, "Voce nao tem acesso ao mercado que escolheu");
+                                write(client_fd, buffer, BUF_SIZE);
+                                continua = 0;
+                                existe = 1;
+                            }
+                        }
+                        if (!existe) {
+                            memset(buffer,0,BUF_SIZE);
+                            snprintf(buffer, BUF_SIZE, "O mercado que escolheu nao existe");
+                            write(client_fd, buffer, BUF_SIZE);
+                            continua = 0;
                         }
                     }
 
-                    sem_post(shared_memory->sem_users);
+                    // sem_post(shared_memory->sem_users);
                 }
-            } else if (!strcmp(buffer, "escolha4")) {
+            } else if (!strcmp(buffer, "escolha4")) { // ligar/desligar feed!
             } else if (!strcmp(buffer, "escolha5")) {
                 char carteira[BUF_SIZE];
                 snprintf(carteira, BUF_SIZE, "Informacoes da carteira:\nSaldo disponivel: %.3f\n", shared_memory->users[id].saldo);

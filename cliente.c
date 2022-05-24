@@ -221,9 +221,10 @@ int main(int argc, char **argv) {
                 char compra[BUF_SIZE * 2];
                 read(fd, compra, BUF_SIZE * 2);
                 printf("%s", compra);
+                //BUG: esta a ccomparar mal!!
                 if (strcmp(compra, "Voce nao tem acoes nao tem acesso a nenhum mercado!\n")) {
                     // Enviar o mercado/acao/num
-                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
+                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}/{Preço}:\n");
                     memset(buffer, 0, BUF_SIZE);
                     scanf("%s", buffer);
                     write(fd, buffer, BUF_SIZE);
@@ -242,9 +243,11 @@ int main(int argc, char **argv) {
                 char venda[BUF_SIZE * 2];
                 read(fd, venda, BUF_SIZE * 2);
                 printf("%s", venda);
-                if (strcmp(compra, "Voce nao tem acoes em nenhum mercado!\n")) { 
+                int cond = strcmp(compra, "Voce nao tem acoes em nenhum mercado!");
+                printf("DEBUG: %d\n",cond);//BUG: esta a ccomparar mal!!
+                if (cond != 0) { 
                     // Enviar o mercado/acao/num
-                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}:\n");
+                    printf("Insira {nome do mercado}/{nome da acao}/{quantidade}/{Preço}:\n");
                     memset(buffer, 0, BUF_SIZE);
                     scanf("%s", buffer);
                     write(fd, buffer, BUF_SIZE);
