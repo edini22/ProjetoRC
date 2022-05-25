@@ -845,7 +845,7 @@ int process_client(int client_fd) {
 }
 
 void terminar(int shm_id) {
-
+    kill(shared_memory->refresh_pid, SIGKILL);
     sem_close(shared_memory->sem_compras);
     sem_close(shared_memory->sem_users);
     sem_unlink("SEM_COMPRAS");

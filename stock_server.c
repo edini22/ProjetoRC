@@ -591,8 +591,9 @@ int main(int argc, char **argv) {
     // fechar os sockets no processo main!
     close(fd);
     close(s);
+    close(sock_multi1);
+    close(sock_multi2);
     kill(pid, SIGKILL);
-    kill(pid_refresh, SIGKILL);
 
     return 0;
 }
