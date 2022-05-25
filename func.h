@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -66,11 +67,6 @@ typedef struct {
     bool ocupado;
 } utilizadores;
 
-typedef struct {
-    pid_t c_pid;
-    bool ocupado;
-} processo;
-
 //------
 
 typedef struct {
@@ -86,8 +82,7 @@ typedef struct {
 
     sem_t *sem_compras;
     sem_t *sem_users;
-    // sem_t *mutex_login;
-    processo atuais[5];
+    sem_t *sem_login;
 
 } SM;
 
@@ -104,12 +99,6 @@ int process_client(int client_fd);
 
 int config(char *path);
 
-void terminar(int shm_id);
-
-void add_cpid(int cliente);
-
-void remove_cpid(int cliente);
-
-void SIGINT_HANDLER(int signum);
+void terminar();
 
 #endif

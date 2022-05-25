@@ -37,7 +37,7 @@ int login(int fd) {
     // Login: Username:
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    if (!strcmp(buffer, "Nao existem usuarios registados!")) {
+    if (!strcmp(buffer, "Nao existem usuarios registados!") || !strcmp(buffer, "Já estao 5 utilizadores!")) {
         return -1;
     }
     fflush(stdout);
@@ -187,51 +187,52 @@ int main(int argc, char **argv) {
                 memset(buffer, 0, BUF_SIZE);
                 read(fd, buffer, BUF_SIZE);
                 printf("%s", buffer);
-
-                // Escolher mercado que pretende subscrever
-                char num[2];
-                scanf("%s", num);
-                int n = atoi(num);
-                if (subs[n - 1] == 1) {
-                    num[0] = '9';
-                }
-                write(fd, num, 2);
-                // Resposta do server
-                memset(buffer, 0, BUF_SIZE);
-                read(fd, buffer, BUF_SIZE);
-                // Numero invalido
-                if (!strcmp(buffer, "O numero nao e valido\n")||!strcmp(buffer, "Ja se subscreveu este canal\n")) {
-                    printf("%s", buffer);
-                    // Receber o endereco do grupo multicast
-                } else {
-                    printf("%s", buffer);
-                    // Ler endereco do multicast
+                if (strcmp(buffer, "Nao tem acesso a nenhum mercado pelo que nao pode subscrever a nenhuma cotacao\n")) {
+                    // Escolher mercado que pretende subscrever
+                    char num[2];
+                    scanf("%s", num);
+                    int n = atoi(num);
+                    if (subs[n - 1] == 1) {
+                        num[0] = '9';
+                    }
+                    write(fd, num, 2);
+                    // Resposta do server
                     memset(buffer, 0, BUF_SIZE);
                     read(fd, buffer, BUF_SIZE);
-                    printf("Endereco: %s\n", buffer);
+                    // Numero invalido
+                    if (!strcmp(buffer, "O numero nao e valido\n") || !strcmp(buffer, "Ja se subscreveu este canal\n")) {
+                        printf("%s", buffer);
+                        // Receber o endereco do grupo multicast
+                    } else {
+                        printf("%s", buffer);
+                        // Ler endereco do multicast
+                        memset(buffer, 0, BUF_SIZE);
+                        read(fd, buffer, BUF_SIZE);
+                        printf("Endereco: %s\n", buffer);
 
-                    // TODO: verificar se pode subscrever a mais mercados, i.e., if subs >= shared_memory->user.num_mercados;
-                    if (!strcmp(buffer, "239.0.0.1")) {
-                        printf("ENtrou!\n");
-                        // colocar o endereco que se recebe na struct
-                        mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
-                        mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
+                        // TODO: verificar se pode subscrever a mais mercados, i.e., if subs >= shared_memory->user.num_mercados;
+                        if (!strcmp(buffer, "239.0.0.1")) {
+                            printf("ENtrou!\n");
+                            // colocar o endereco que se recebe na struct
+                            mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
+                            mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
 
-                        if (setsockopt(sock_multi1, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
-                            erro("setsockopt mreq");
+                            if (setsockopt(sock_multi1, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
+                                erro("setsockopt mreq");
+                            }
+
+                            subs[0] = 1;
+                        } else if (!strcmp(buffer, "239.0.0.2")) {
+
+                            mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
+                            mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
+
+                            if (setsockopt(sock_multi2, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
+                                erro("setsockopt mreq");
+                            }
+
+                            subs[1] = 1;
                         }
-
-                        subs[0] = 1;
-                    } else if (!strcmp(buffer, "239.0.0.2")) {
-
-                        mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
-                        mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
-
-                        if (setsockopt(sock_multi2, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
-                            erro("setsockopt mreq");
-                        }
-
-                        subs[1] = 1;
                     }
                 }
 

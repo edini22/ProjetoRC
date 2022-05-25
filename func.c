@@ -178,70 +178,77 @@ int config(char *path) {
 int login(int fd, char *username) {
     char buffer[BUF_SIZE];
 
+    sem_wait(shared_memory->sem_login);
     if (shared_memory->num_utilizadores == 0) {
+        sem_post(shared_memory->sem_login);
         memset(buffer, 0, BUF_SIZE);
         snprintf(buffer, BUF_SIZE, "Nao existem usuarios registados!");
         write(fd, buffer, BUF_SIZE);
-        exit(1);
-    }
+    } else if (shared_memory->clientes_atuais > 5) {
+        sem_post(shared_memory->sem_login);
+        memset(buffer, 0, BUF_SIZE);
+        snprintf(buffer, BUF_SIZE, "Já estao 5 utilizadores!");
+        write(fd, buffer, BUF_SIZE);
+    } else {
+        sem_post(shared_memory->sem_login);
+        // Read username
+        memset(buffer, 0, BUF_SIZE);
+        snprintf(buffer, BUF_SIZE, "Login\nUsername: ");
+        write(fd, buffer, BUF_SIZE); //
+        // fflush(stdout);
+        memset(buffer, 0, BUF_SIZE);
+        read(fd, buffer, BUF_SIZE); //
+        // strcpy(username, buffer);
 
-    // Read username
-    memset(buffer, 0, BUF_SIZE);
-    snprintf(buffer, BUF_SIZE, "Login\nUsername: ");
-    write(fd, buffer, BUF_SIZE); //
-    // fflush(stdout);
-    memset(buffer, 0, BUF_SIZE);
-    read(fd, buffer, BUF_SIZE); //
-    // strcpy(username, buffer);
-
-    // Verify user
-    // buffer[strlen(buffer) - 1] = '\0'; // Netcat
-    int a;
-    int i;
-    int existe = 0;
-    for (i = 0; i < 10; i++) {
-        char aux[BUF_SIZE];
-        if (shared_memory->users[i].ocupado == true) {
-            strcpy(aux, shared_memory->users[i].nome);
-            if ((a = strcmp(buffer, aux)) == 0) {
-                existe = 1;
-                break;
+        // Verify user
+        // buffer[strlen(buffer) - 1] = '\0'; // Netcat
+        int a;
+        int i;
+        int existe = 0;
+        for (i = 0; i < 10; i++) {
+            char aux[BUF_SIZE];
+            if (shared_memory->users[i].ocupado == true) {
+                strcpy(aux, shared_memory->users[i].nome);
+                if ((a = strcmp(buffer, aux)) == 0) {
+                    existe = 1;
+                    break;
+                }
             }
         }
-    }
 
-    // Read password
-    memset(buffer, 0, BUF_SIZE);
-    snprintf(buffer, BUF_SIZE, "Password: ");
-    write(fd, buffer, BUF_SIZE); //
-    memset(buffer, 0, BUF_SIZE);
-    read(fd, buffer, BUF_SIZE); //
-    // buffer[strlen(buffer) - 1] = '\0'; // Netcat
+        // Read password
+        memset(buffer, 0, BUF_SIZE);
+        snprintf(buffer, BUF_SIZE, "Password: ");
+        write(fd, buffer, BUF_SIZE); //
+        memset(buffer, 0, BUF_SIZE);
+        read(fd, buffer, BUF_SIZE); //
+        // buffer[strlen(buffer) - 1] = '\0'; // Netcat
 
-    // Verify password
-    int password_correta = 0;
-    if (existe) {
-        char aux[50];
-        strcpy(aux, shared_memory->users[i].password);
-        if ((a = strcmp(buffer, aux)) == 0) {
-            password_correta = 1;
+        // Verify password
+        int password_correta = 0;
+        if (existe) {
+            char aux[50];
+            strcpy(aux, shared_memory->users[i].password);
+            if ((a = strcmp(buffer, aux)) == 0) {
+                password_correta = 1;
+            }
         }
-    }
 
-    // Return success or unsuccess
-    memset(buffer, 0, BUF_SIZE);
-    if (!existe) {
-        snprintf(buffer, BUF_SIZE, "\nO Username nao existe");
-        write(fd, buffer, BUF_SIZE);
-        return -1;
-    } else if (existe && !password_correta) {
-        snprintf(buffer, BUF_SIZE, "\nPassword incorreta");
-        write(fd, buffer, BUF_SIZE);
-        return -1;
-    } else {
-        snprintf(buffer, BUF_SIZE, "\nLogin efetuado com sucesso!");
-        write(fd, buffer, BUF_SIZE);
-        return i;
+        // Return success or unsuccess
+        memset(buffer, 0, BUF_SIZE);
+        if (!existe) {
+            snprintf(buffer, BUF_SIZE, "\nO Username nao existe");
+            write(fd, buffer, BUF_SIZE);
+            return -1;
+        } else if (existe && !password_correta) {
+            snprintf(buffer, BUF_SIZE, "\nPassword incorreta");
+            write(fd, buffer, BUF_SIZE);
+            return -1;
+        } else {
+            snprintf(buffer, BUF_SIZE, "\nLogin efetuado com sucesso!");
+            write(fd, buffer, BUF_SIZE);
+            return i;
+        }
     }
 }
 
@@ -313,8 +320,6 @@ int process_client(int client_fd) {
     if (id == -1) {
         printf("Wrong Username or password\n");
     } else {
-        add_cpid(client_fd);
-
         printf("Cliente n%d logado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
 
         // Enviar ao cliente os mercados que pode aceder
@@ -345,7 +350,13 @@ int process_client(int client_fd) {
                 sem_wait(shared_memory->sem_users);
                 // Mostrar ao user os mercados disponiveis
                 int n_merc = shared_memory->users[id].num_mercados;
-                if (n_merc != 0) {
+                if (n_merc == 0) {
+                    sem_post(shared_memory->sem_users);
+                    snprintf(buffer, BUF_SIZE, "Nao tem acesso a nenhum mercado pelo que nao pode subscrever a nenhuma cotacao\n");
+                    printf("%s", buffer);
+                    write(client_fd, buffer, BUF_SIZE);
+                } else {
+                    sem_post(shared_memory->sem_users);
                     char aux[200];
                     snprintf(buffer, BUF_SIZE, "Escolha um mercado para subscrever:\n");
                     printf("%s", buffer);
@@ -355,47 +366,42 @@ int process_client(int client_fd) {
                         printf("%s", aux);
                         strcat(buffer, aux);
                     }
-                } else {
-                    snprintf(buffer, BUF_SIZE, "Nao tem acesso a nenhum mercado pelo que nao pode subscrever a nenhuma cotacao\n");
-                    printf("%s", buffer);
-                }
-                sem_post(shared_memory->sem_users);
-                write(client_fd, buffer, BUF_SIZE);
-
-                // Receber o numero do mercado a subscrever
-                char numero[2];
-                printf("Numero de mercados = %d\n", n_merc);
-                read(client_fd, numero, 2);
-                int num = atoi(numero);
-                memset(buffer, 0, BUF_SIZE);
-                if (num > n_merc || num < 1) {
-                    if (num == 9) {
-                        snprintf(buffer, BUF_SIZE, "Ja se subscreveu nesse canal\n");
-                    } else {
-                        snprintf(buffer, BUF_SIZE, "O numero nao e valido\n");
-                    }
                     write(client_fd, buffer, BUF_SIZE);
-                } else {
-                    num--; // para o indice ficar correto
-                    int mercado;
-                    for (mercado = 0; mercado < shared_memory->num_mercados; mercado++) {
-
-                        // Encontrar o indice do mercado no array dos mercados
-                        if (!strcmp(shared_memory->mercados[mercado].nome, shared_memory->users[id].mercados[num].nome)) {
-                            // TODO: Devolver endereco do multicast
-                            snprintf(buffer, BUF_SIZE, "Mercado escolhido: %s\n", shared_memory->users[id].mercados[num].nome);
-                            break;
+                    // Receber o numero do mercado a subscrever
+                    char numero[2];
+                    printf("Numero de mercados = %d\n", n_merc);
+                    read(client_fd, numero, 2);
+                    int num = atoi(numero);
+                    memset(buffer, 0, BUF_SIZE);
+                    if (num > n_merc || num < 1) {
+                        if (num == 9) {
+                            snprintf(buffer, BUF_SIZE, "Ja se subscreveu este canal\n");
+                        } else {
+                            snprintf(buffer, BUF_SIZE, "O numero nao e valido\n");
                         }
-                    }
-                    write(client_fd, buffer, BUF_SIZE);
+                        write(client_fd, buffer, BUF_SIZE);
+                    } else {
+                        num--; // para o indice ficar correto
+                        int mercado;
+                        for (mercado = 0; mercado < shared_memory->num_mercados; mercado++) {
 
-                    // Multicast para o mercado bvl
-                    if (mercado == 0) {
-                        write(client_fd, GROUP1, 50);
+                            // Encontrar o indice do mercado no array dos mercados
+                            if (!strcmp(shared_memory->mercados[mercado].nome, shared_memory->users[id].mercados[num].nome)) {
+                                // TODO: Devolver endereco do multicast
+                                snprintf(buffer, BUF_SIZE, "Mercado escolhido: %s\n", shared_memory->users[id].mercados[num].nome);
+                                break;
+                            }
+                        }
+                        write(client_fd, buffer, BUF_SIZE);
 
-                        // Multicast para o mercado nyse
-                    } else if (mercado == 1) {
-                        write(client_fd, GROUP2, 50);
+                        // Multicast para o mercado bvl
+                        if (mercado == 0) {
+                            write(client_fd, GROUP1, 50);
+
+                            // Multicast para o mercado nyse
+                        } else if (mercado == 1) {
+                            write(client_fd, GROUP2, 50);
+                        }
                     }
                 }
 
@@ -403,11 +409,6 @@ int process_client(int client_fd) {
                 // variaveis
                 char carteira[BUF_SIZE * 2];
                 // listar os mercados e acoes que tem acesso!
-                int value;
-                sem_getvalue(shared_memory->sem_compras, &value);
-                printf("compras-> %d, ", value);
-                sem_getvalue(shared_memory->sem_users, &value);
-                printf("users -> %d \n", value);
 
                 // sem_wait(shared_memory->sem_users);
                 if (shared_memory->users[id].num_mercados == 0) {
@@ -844,54 +845,15 @@ int process_client(int client_fd) {
     return id;
 }
 
-void terminar(int shm_id) {
+void terminar() {
     kill(shared_memory->refresh_pid, SIGKILL);
     sem_close(shared_memory->sem_compras);
     sem_close(shared_memory->sem_users);
+    sem_close(shared_memory->sem_login);
     sem_unlink("SEM_COMPRAS");
+    sem_unlink("SEM_LOGIN");
     sem_unlink("SEM_USERS");
+
     shmdt(shared_memory);
     shmctl(shm_id, IPC_RMID, NULL);
-}
-
-void add_cpid(int cliente) {
-    for (int i = 0; i < 5; i++) {
-        if (shared_memory->atuais[i].ocupado == false) {
-            shared_memory->atuais[i].ocupado == true;
-            shared_memory->atuais[i].c_pid = cliente;
-            shared_memory->clientes_atuais++;
-            break;
-        }
-    }
-}
-
-void remove_cpid(int cliente) {
-    for (int i = 0; i < 5; i++) {
-        if (cliente == shared_memory->atuais[i].ocupado) {
-            shared_memory->atuais[i].ocupado = false;
-            shared_memory->clientes_atuais--;
-            break;
-        }
-    }
-}
-
-// Funcao que trata do CTRL-C (termina o programa)
-void SIGINT_HANDLER(int signum) {
-    sem_close(shared_memory->sem_compras);
-    sem_close(shared_memory->sem_users);
-    sem_unlink("SEM_COMPRAS");
-    sem_unlink("SEM_USERS");
-
-    kill(shared_memory->refresh_pid, SIGSEGV);
-    // Remove shared_memory
-    if (shmdt(shared_memory) == -1) {
-        perror("acoplamento impossivel");
-    }
-    if (shmctl(shm_id, IPC_RMID, 0) == -1) {
-        perror("destruicao impossivel");
-    }
-    close(fd);
-    close(s);
-
-    exit(0);
 }

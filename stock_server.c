@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
         erro("na funcao socket (TCP)");
     if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         erro("na funcao bind (TCP)");
-    if (listen(fd, 11) < 0)
+    if (listen(fd, 5) < 0)
         erro("na funcao listen (TCP)");
 
     client_addr_size = sizeof(client_addr);
@@ -89,7 +89,6 @@ int main(int argc, char **argv) {
     multi1.sin_addr.s_addr = htonl(INADDR_ANY);
     multi1.sin_port = htons(PORTO1);
     multi1.sin_addr.s_addr = inet_addr(GROUP1);
-    
 
     if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
@@ -117,9 +116,6 @@ int main(int argc, char **argv) {
     shared_memory->mercados[1].num_acoes = 0;
     shared_memory->num_mercados = 0;
     shared_memory->clientes_atuais = 0;
-    for (int i = 0; i < 5; i++) {
-        shared_memory->atuais[i].ocupado = false;
-    }
     for (int i = 0; i < 10; i++) {
         shared_memory->users[i].ocupado = false;
     }
@@ -127,16 +123,18 @@ int main(int argc, char **argv) {
     // Ler e verificar se o config_file esta correto
     if (config(path) == -1) {
         printf("A terminar programa.\n");
-        terminar(shm_id);
+        shmdt(shared_memory);
+        shmctl(shm_id, IPC_RMID, NULL);
         exit(0);
     }
 
     sem_unlink("SEM_COMPRAS");
     sem_unlink("SEM_USERS");
-    // sem_unlink("MUTEX_LOGIN");
+    sem_unlink("SEM_LOGIN");
     shared_memory->sem_compras = sem_open("SEM_COMPRAS", O_CREAT | O_EXCL, 0700, 1);
     shared_memory->sem_users = sem_open("SEM_USERS", O_CREAT | O_EXCL, 0700, 1);
-    // shared_memory->mutex_login = sem_open("MUTEX_LOGIN", O_CREAT | O_EXCL, 0700, 0);
+    shared_memory->sem_login = sem_open("SEM_LOGIN", O_CREAT | O_EXCL, 0700, 1);
+
     // int i = 0;
     shared_memory->refresh_time = 2;
 
@@ -206,7 +204,8 @@ int main(int argc, char **argv) {
 
     // TCP =================================================================================
     if ((pid = fork()) == 0) {
-        while (shared_memory->clientes_atuais < 5) {
+        while (1) {
+
             while (waitpid(-1, NULL, WNOHANG) > 0)
                 ;
             // wait for new connection TCP
@@ -215,18 +214,22 @@ int main(int argc, char **argv) {
 
             pid_t cpid = fork();
             if (cpid == 0) {
-
+                sem_wait(shared_memory->sem_login);
+                shared_memory->clientes_atuais++;
+                sem_post(shared_memory->sem_login);
                 // Escolhas feitas pelo user
                 int id = process_client(client_fd);
 
-                remove_cpid(client_fd);
                 if (id != -1)
                     printf("Cliente n%d deslogado (%s)\n", shared_memory->clientes_atuais, shared_memory->users[id].nome);
-
+                sem_wait(shared_memory->sem_login);
+                shared_memory->clientes_atuais--;
+                sem_post(shared_memory->sem_login);
                 close(fd);
                 close(client_fd);
                 exit(0);
             }
+            sleep(1);
         }
 
         exit(0);
@@ -582,11 +585,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    terminar(shm_id);
-
-    // while (wait(NULL) != 1 || errno != ECHILD) {
-    //     printf("wainted for a child to finish\n");
-    // }
+    terminar();
 
     // fechar os sockets no processo main!
     close(fd);
