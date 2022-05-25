@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     int sock_multi2;
     int multicastTTL = 255;
 
-    if ((sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0))<0) {
+    if ((sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
     }
     if (setsockopt(sock_multi1, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
@@ -87,10 +87,11 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi1.sin_family = AF_INET;
     multi1.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi1.sin_port = htons(PORTO2); // FIXME: ver estes portos
+    multi1.sin_port = htons(PORTO1);
     multi1.sin_addr.s_addr = inet_addr(GROUP1);
+    
 
-    if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0))<0) {
+    if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
     }
     if (setsockopt(sock_multi2, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
@@ -99,9 +100,8 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi2.sin_family = AF_INET;
     multi2.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi2.sin_port = htons(PORTO2); 
-    multi1.sin_addr.s_addr = inet_addr(GROUP2);
-    // sendto(sock, message, sizeof(message), 0, (struct sockaddr *) &sock_multi1, sizeof(sock_multi1));
+    multi2.sin_port = htons(PORTO2);
+    multi2.sin_addr.s_addr = inet_addr(GROUP2);
 
     //--------------------------------------------------------------------------------------
     // Ignore signal
@@ -150,12 +150,18 @@ int main(int argc, char **argv) {
     // REFRESH =============================================================================
     if ((pid_refresh = fork()) == 0) {
         shared_memory->refresh_pid = getpid();
+        char mercado1[BUF_SIZE * 4];
+        char mercado2[BUF_SIZE * 4];
+        snprintf(mercado1, BUF_SIZE, "Multicast1:\n");
+        snprintf(mercado2, BUF_SIZE, "Multicast2:\n");
         int r;
         srand(time(NULL));
         while (1) {
             sleep(shared_memory->refresh_time);
             sem_wait(shared_memory->sem_compras);
             for (int m = 0; m < shared_memory->num_mercados; m++) {
+                memset(mercado1, 0, BUF_SIZE);
+                memset(mercado2, 0, BUF_SIZE);
                 for (int a = 0; a < shared_memory->mercados[m].num_acoes; a++) {
                     if (shared_memory->mercados[m].acoes[a].preco >= 0.02) {
                         r = rand() % 2;
@@ -177,7 +183,22 @@ int main(int argc, char **argv) {
                         else
                             shared_memory->mercados[m].acoes[a].n_acoes += 10;
                     }
+                    if (m == 0) {
+                        char aux[BUF_SIZE * 2];
+                        snprintf(aux, BUF_SIZE * 2, "Mercado %s, Acao %s, Preco %f, N Acoes %d\n", shared_memory->mercados[m].nome, shared_memory->mercados[m].acoes[a].nome, shared_memory->mercados[m].acoes[a].preco, shared_memory->mercados[m].acoes[a].n_acoes);
+                        strcat(mercado1, aux);
+                    } else {
+                        char aux[BUF_SIZE * 2];
+                        snprintf(aux, BUF_SIZE * 2, "Mercado %s, Acao %s, Preco %f, N Acoes %d\n", shared_memory->mercados[m].nome, shared_memory->mercados[m].acoes[a].nome, shared_memory->mercados[m].acoes[a].preco, shared_memory->mercados[m].acoes[a].n_acoes);
+                        strcat(mercado2, aux);
+                    }
                 }
+                int nbytes = sendto(sock_multi1, mercado1, strlen(mercado1), 0, (struct sockaddr *)&multi1, sizeof(multi1));
+                if (nbytes < 0) {
+                    perror("sendto");
+                    return 1;
+                }
+                sendto(sock_multi2, mercado2, strlen(mercado2), 0, (struct sockaddr *)&multi2, sizeof(multi2));
             }
             sem_post(shared_memory->sem_compras);
         }

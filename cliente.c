@@ -20,6 +20,14 @@
 #define PORTO1 9876
 #define PORTO2 9875
 int fd;
+struct sockaddr_in multi1;
+int sock_multi1;
+struct sockaddr_in multi2;
+int sock_multi2;
+int multi_len1;
+int multi_len2;
+int subs[2]; // varivel para saber quais as subscricoes
+struct ip_mreq mreq[2];
 
 void erro(char *msg);
 
@@ -29,7 +37,7 @@ int login(int fd) {
     // Login: Username:
     read(fd, buffer, BUF_SIZE);
     printf("%s", buffer);
-    if(!strcmp(buffer,"Nao existem usuarios registados!")){
+    if (!strcmp(buffer, "Nao existem usuarios registados!")) {
         return -1;
     }
     fflush(stdout);
@@ -67,10 +75,20 @@ int login(int fd) {
 }
 
 void *mostra_feed(void *args) {
-    // TODO: passar por parametros os sockets para receber informacoes
+    char teste[BUF_SIZE * 4];
     while (1) {
-        sleep(1);
-        printf("feed\n");
+        memset(teste, 0, BUF_SIZE * 4);
+        if (subs[0] == 1) {
+            if (recvfrom(sock_multi1, teste, BUF_SIZE * 4, 0, (struct sockaddr *)&multi1, (socklen_t *)&multi_len1) < 0) {
+                printf("Erro a receber\n");
+            }
+            printf("%s\n", teste);
+        }
+        if (subs[1] == 1) {
+            memset(teste, 0, BUF_SIZE * 4);
+            recvfrom(sock_multi2, teste, BUF_SIZE * 4, 0, (struct sockaddr *)&multi2, (socklen_t *)&multi_len2);
+            printf("%s\n", teste);
+        }
     }
 }
 
@@ -84,7 +102,7 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-    // leitura dos parametros
+    // leitura dos parametros --------------------------------------------------------------------------------
     char *ponteiro;
     char endereco[50];
     char buffer[BUF_SIZE];
@@ -92,7 +110,7 @@ int main(int argc, char **argv) {
     strcpy(endereco, argv[1]);
     int PORTO_BOLSA = (int)strtol(argv[2], &ponteiro, 10);
 
-    // Conexao TCP
+    // Conexao TCP ----------------------------------------------------------------------------------------
     if ((hostPtr = gethostbyname(endereco)) == 0) {
         erro("Endereco errado");
     }
@@ -106,21 +124,20 @@ int main(int argc, char **argv) {
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
         erro("Connect");
 
-    // Sockets Multicast
-    struct sockaddr_in multi1;
-    int sock_multi1;
-    struct sockaddr_in multi2;
-    int sock_multi2;
-    int multi_len1 = sizeof(multi1);
-    int multi_len2 = sizeof(multi2);
+    // Sockets Multicast ------------------------------------------------------------------------------------
+    multi_len1 = sizeof(multi1);
+    multi_len2 = sizeof(multi2);
     int multicastTTL = 255;
+    subs[0] = 0;
+    subs[1] = 0;
 
     if ((sock_multi1 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
     }
-    if (setsockopt(sock_multi1, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
+    if (setsockopt(sock_multi1, SOL_SOCKET, SO_REUSEADDR, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
         erro("funcao socket opt");
     }
+
     bzero((char *)&addr, sizeof(addr));
     multi1.sin_family = AF_INET;
     multi1.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -129,7 +146,7 @@ int main(int argc, char **argv) {
     if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
     }
-    if (setsockopt(sock_multi2, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
+    if (setsockopt(sock_multi2, SOL_SOCKET, SO_REUSEADDR, (void *)&multicastTTL, sizeof(multicastTTL)) < 0) {
         erro("funcao socket opt");
     }
     bzero((char *)&addr, sizeof(addr));
@@ -143,10 +160,6 @@ int main(int argc, char **argv) {
     if (bind(sock_multi2, (struct sockaddr *)&multi2, sizeof(multi2)) < 0) {
         erro("bind (multi2)");
     }
-
-    int subs = 0; // varivel para alterar entre sockets de receber
-    struct ip_mreq mreq[2];
-    // recvfrom(sock_multi1, buffer, sizeof(buffer), 0, (struct sockaddr *) &multi1, (socklen_t *)&multi_len1);
 
     // =#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -178,38 +191,47 @@ int main(int argc, char **argv) {
                 // Escolher mercado que pretende subscrever
                 char num[2];
                 scanf("%s", num);
+                int n = atoi(num);
+                if (subs[n - 1] == 1) {
+                    num[0] = '9';
+                }
                 write(fd, num, 2);
-
                 // Resposta do server
                 memset(buffer, 0, BUF_SIZE);
                 read(fd, buffer, BUF_SIZE);
                 // Numero invalido
-                if (!strcmp(buffer, "O numero nao e valido")) {
+                if (!strcmp(buffer, "O numero nao e valido\n")||!strcmp(buffer, "Ja se subscreveu este canal\n")) {
                     printf("%s", buffer);
                     // Receber o endereco do grupo multicast
                 } else {
-                    printf("DEBUG: strcmp funcionou certinho\n");
                     printf("%s", buffer);
                     // Ler endereco do multicast
                     memset(buffer, 0, BUF_SIZE);
                     read(fd, buffer, BUF_SIZE);
-                    printf("Endereco: %s", buffer);
+                    printf("Endereco: %s\n", buffer);
+
                     // TODO: verificar se pode subscrever a mais mercados, i.e., if subs >= shared_memory->user.num_mercados;
-                    if (subs == 0) {
+                    if (!strcmp(buffer, "239.0.0.1")) {
+                        printf("ENtrou!\n");
                         // colocar o endereco que se recebe na struct
-                        mreq[subs].imr_multiaddr.s_addr = inet_addr(buffer);
-                        mreq[subs].imr_interface.s_addr = htonl(INADDR_ANY);
-                        if (setsockopt(sock_multi1, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[subs], sizeof(mreq[subs])) < 0) {
+                        mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
+                        mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
+
+                        if (setsockopt(sock_multi1, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
                             erro("setsockopt mreq");
                         }
 
-                        subs++;
-                    } else {
-                        mreq[subs].imr_multiaddr.s_addr = inet_addr(buffer);
-                        mreq[subs].imr_interface.s_addr = htonl(INADDR_ANY);
-                        if (setsockopt(sock_multi2, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[subs], sizeof(mreq[subs])) < 0) {
+                        subs[0] = 1;
+                    } else if (!strcmp(buffer, "239.0.0.2")) {
+
+                        mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
+                        mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
+
+                        if (setsockopt(sock_multi2, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
                             erro("setsockopt mreq");
                         }
+
+                        subs[1] = 1;
                     }
                 }
 
@@ -221,7 +243,7 @@ int main(int argc, char **argv) {
                 char compra[BUF_SIZE * 2];
                 read(fd, compra, BUF_SIZE * 2);
                 printf("%s", compra);
-                //BUG: esta a ccomparar mal!!
+                // BUG: esta a ccomparar mal!!
                 if (strcmp(compra, "Voce nao tem acoes nao tem acesso a nenhum mercado!\n")) {
                     // Enviar o mercado/acao/num
                     printf("Insira {nome do mercado}/{nome da acao}/{quantidade}/{Preço}:\n");
@@ -241,22 +263,21 @@ int main(int argc, char **argv) {
                 write(fd, "escolha3", 10);
                 // Ver as acoes que possui para vender
                 char venda[BUF_SIZE * 2];
+                memset(venda, 0, BUF_SIZE * 2);
                 read(fd, venda, BUF_SIZE * 2);
                 printf("%s", venda);
-                int cond = strcmp(compra, "Voce nao tem acoes em nenhum mercado!");
-                printf("DEBUG: %d\n",cond);//BUG: esta a ccomparar mal!!
-                if (cond != 0) { 
+                int cond = strcmp(venda, "Voce nao tem acoes em nenhum mercado!\n");
+                if (cond != 0) {
                     // Enviar o mercado/acao/num
                     printf("Insira {nome do mercado}/{nome da acao}/{quantidade}/{Preço}:\n");
                     memset(buffer, 0, BUF_SIZE);
                     scanf("%s", buffer);
                     write(fd, buffer, BUF_SIZE);
 
-                     // Reposta do servidor
+                    // Reposta do servidor
                     memset(buffer, 0, BUF_SIZE);
                     read(fd, buffer, BUF_SIZE);
                     printf("%s", buffer);
-
                 }
 
                 break;
@@ -286,7 +307,21 @@ int main(int argc, char **argv) {
 
             case 6: // Sair
                 write(fd, "escolha6", 10);
+                if (toggle == 1) {
+                    pthread_cancel(feed_atualizacoes);
+                }
+                if (subs[0] == 1) {
+                    if (setsockopt(sock_multi1, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq[0], sizeof(mreq[0])) < 0) {
+                        erro("setsockopt mreq1");
+                    }
+                } else if (subs[1] == 1) {
+                    if (setsockopt(sock_multi2, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq[1], sizeof(mreq[1])) < 0) {
+                        erro("setsockopt mreq2");
+                    }
+                }
                 close(fd);
+                close(sock_multi1);
+                close(sock_multi2);
                 exit(0);
                 break;
             }
