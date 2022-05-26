@@ -285,14 +285,17 @@ int main(int argc, char **argv) {
 
             case 4: // Ligar/desligar feed
                 write(fd, "escolha4", 10);
-                if (toggle == 0) {
-                    toggle = 1;
-                    pthread_create(&feed_atualizacoes, NULL, mostra_feed, NULL);
-                } else {
-                    toggle = 0;
-                    pthread_cancel(feed_atualizacoes);
+                if (subs[0] == 1 || subs[1] == 1) {
+                    if (toggle == 0) {
+                        toggle = 1;
+                        pthread_create(&feed_atualizacoes, NULL, mostra_feed, NULL);
+                    } else {
+                        toggle = 0;
+                        pthread_cancel(feed_atualizacoes);
+                    }
+                }else{
+                    printf("Tem de subscrever um mercado primeiro!\n");
                 }
-
                 break;
 
             case 5: // Carteira
