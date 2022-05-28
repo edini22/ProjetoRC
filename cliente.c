@@ -1,5 +1,5 @@
 // operations_terminal {endereço do servidor} {PORTO_BOLSA}
-// ./operations_terminal 127.0.0.1 9000
+// ./operations_terminal 180.43.170.1 9000
 // Server<->Cliente TCP
 
 // bvl/stock_bvl_1/10
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi1.sin_family = AF_INET;
     multi1.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi1.sin_port = htons(PORTO1); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi1.sin_port = htons(PORTO1);
 
     if ((sock_multi2 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         erro("na funcao socket(multicast)");
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
     bzero((char *)&addr, sizeof(addr));
     multi2.sin_family = AF_INET;
     multi2.sin_addr.s_addr = htonl(INADDR_ANY);
-    multi2.sin_port = htons(PORTO2); //  FIXME: verificar se e para usar o mesmo porto ou outro
+    multi2.sin_port = htons(PORTO2);
 
     if (bind(sock_multi1, (struct sockaddr *)&multi1, sizeof(multi1)) < 0) {
         erro("bind (multi1)");
@@ -210,9 +210,7 @@ int main(int argc, char **argv) {
                         read(fd, buffer, BUF_SIZE);
                         printf("Endereco: %s\n", buffer);
 
-                        // TODO: verificar se pode subscrever a mais mercados, i.e., if subs >= shared_memory->user.num_mercados;
                         if (!strcmp(buffer, "239.0.0.1")) {
-                            printf("ENtrou!\n");
                             // colocar o endereco que se recebe na struct
                             mreq[0].imr_multiaddr.s_addr = inet_addr(buffer);
                             mreq[0].imr_interface.s_addr = htonl(INADDR_ANY);
@@ -304,7 +302,6 @@ int main(int argc, char **argv) {
                 char carteira[BUF_SIZE * 2];
                 memset(buffer, 0, BUF_SIZE);
                 memset(carteira, 0, BUF_SIZE * 2);
-                printf("espera!%s\n", carteira);
                 read(fd, carteira, BUF_SIZE * 2);
                 printf("%s", carteira);
                 break;

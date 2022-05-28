@@ -3,7 +3,7 @@
 // Server<->Cliente TCP
 // Server<->Consola_Admin UDP
 // TCP - nc -v localhost 9000
-// UDP - nc -u -4 localhost 9001
+// UDP - nc -u -4 180.43.170.1 9001
 
 #include "func.h"
 
@@ -317,7 +317,7 @@ int main(int argc, char **argv) {
                     }
                     toke = strtok(NULL, " ");
                 }
-                // printf("\ncondiçao == %d\n", condicao);//TODO:VERIFICAR SE JA TEM O MERCADO A ADICIONAR! para nao resetar os mercados!
+               
                 if (condicao == 1) {
                     char *tok = strtok(buffer2, " ");
                     sem_wait(shared_memory->sem_users);
@@ -416,7 +416,7 @@ int main(int argc, char **argv) {
                                                     shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].ocupado = true;
                                                     shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acesso = true;
                                                     shared_memory->users[i].num_mercados++;
-                                                    // TODO: adicionar acoes e inicializar variaveis!!
+                                                    
                                                     if (!strcmp(shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].nome, shared_memory->mercados[0].nome)) {
                                                         for (int a = 0; a < shared_memory->mercados[0].num_acoes; a++) {
                                                             shared_memory->users[i].mercados[shared_memory->users[i].num_mercados].acao[a].n_acoes = 0;
@@ -568,7 +568,7 @@ int main(int argc, char **argv) {
             snprintf(buffer, BUF_SIZE, "O admin deslogado!\n");
             sendto(s, buffer, strlen(buffer), 0, (struct sockaddr *)&admin_outra, slen);
             printf("%s", buffer);
-            while (login_admin(s) == -1) // FIXME: quando o admin sai, a consola do nc nao fecha pq fica a espera de login
+            while (login_admin(s) == -1)
                 ;
 
         } else if (!strcmp(buffer, "QUIT_SERVER")) { // ------------------------------------------
